@@ -8,7 +8,7 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 /**
- * Write a description of class Profile here.
+ * This class creates a profile using a constructor that takes in a line of information about a person.
  * 
  * @author Tristan Canova, Neil Divine, Dan Carpenter
  * @version 6/1/16
@@ -20,9 +20,9 @@ public class Profile
     private Double age;
     private ArrayList<Integer> attractions;
     //maps each attraction category to its specific score
-    private Hashtable<String, Double> cat_count = new Hashtable<String, Double>();
+    private HashMap<String, Double> cat_count = new HashMap<String, Double>();
     //maps each attraction category to the amount of times its been rated
-    private Hashtable<String, Integer> cat_occurance = new Hashtable<String, Integer>();
+    private HashMap<String, Integer> cat_occurance = new HashMap<String, Integer>();
 
     public Profile(String line)
     {
@@ -143,12 +143,12 @@ public class Profile
         return this.attractions;
     }
     
-    protected Hashtable<String, Double> getCat_count()
+    protected HashMap<String, Double> getCat_count()
     {
         return this.cat_count;
     }
     
-    protected Hashtable<String, Integer> getCat_occurance()
+    protected HashMap<String, Integer> getCat_occurance()
     {
         return this.cat_occurance;
     }
