@@ -12,7 +12,7 @@ public class Main
 {
     // This member is a map which maps profile IDs to their respective profile
     public static Hashtable<Integer, Profile> profiles = new Hashtable<Integer, Profile>(); // WHY DOES THIS NEED TO BE A HASHTABLE???????
-    
+
     // This member is a map which maps attraction IDs to their respective attraction
     public static HashMap<Integer, Attraction> attrs = new HashMap<Integer, Attraction>();
 
@@ -156,6 +156,7 @@ public class Main
         //Set<Integer> people = profiles.navigableKeySet();
         Set<Integer> people = profiles.keySet();
         HashMap<Integer, ArrayList<Attraction>> testMap = new HashMap<Integer, ArrayList<Attraction>>();
+        TreeMap<Integer, String> attrNames = new TreeMap<Integer, String>();
         for(Integer num : people)
         {
             Profile person = profiles.get(num);
@@ -196,6 +197,9 @@ public class Main
             for(int i = 0; i<attractions.size(); i++){
                 System.out.printf("%2d) %-35s %5.2f\n",
                     i+1, attractions.get(i).name, attractions.get(i).score);
+
+                attrNames.put(attractions.get(i).id, attractions.get(i).name);
+
             }
 
             System.out.println("Sorted Results:     " + person.getUser_ID());
@@ -216,6 +220,8 @@ public class Main
                 ", \"runid\": \"SCIAIrunA\"}");
             pw.println();
         }
+
+        createAttractionIDFile(attrNames);
 
         //         for(Integer num : people){
         //             Profile person = profiles.get(num);
@@ -245,7 +251,26 @@ public class Main
         //                 ", \"runid\": \"SCIAIrunA\"}");
         //             pw.println();
         //         }
+
         in.close();
         pw.close();
+    }
+
+    private static void createAttractionIDFile(TreeMap<Integer, String> attrNames) throws IOException{
+        PrintWriter writer = new PrintWriter("11WithNames.txt");
+        BufferedReader in = new BufferedReader(new FileReader(Paths.get("11Run.csv").toFile()));
+        String line = "";
+        while((line = in.readLine()) != null){
+            String[] row = line.split(",");
+            int userID = Integer.parseInt(row[0]);
+            String[] temp = row[2].split("-");
+            int attrID = Integer.parseInt(temp[1]);
+            writer.println(userID + " - " + row[3] + " - " + attrNames.get(attrID));
+        }
+        //         Set<Integer> attrIDs = attrNames.navigableKeySet();
+        //         for(Integer id : attrIDs){
+        //             writer.println(id + ": " + attrNames.get(id));
+        //         }
+        writer.close();
     }
 }
