@@ -23,38 +23,40 @@ public class Profile implements Serializable
 
     // Attraction ID -> Attraction Object
     transient static HashMap<Integer, Attraction> attrs = new HashMap<Integer, Attraction>();
-    static{
+    static//Static initializer block that fills the Hashmaps collection and coordinates 
+    {
         collection = new HashMap<Integer, String>();
         BufferedReader in = null;
         try{
-            in = new BufferedReader(new FileReader(Paths.get("collection_2015.csv").toFile()));
+            in = new BufferedReader(new FileReader(Paths.get("../DataFiles/collection_2015.csv").toFile()));//The collection file given to us by Trec VERY LARGE 
+            //contains attraction names ^
             String line = "";
-            //int lineNum = 1;
             while((line = in.readLine()) != null){
                 String[] content = split(line, 4);
-                //System.out.println(lineNum);
                 String[] trecID = content[0].split("-");
                 int id = Integer.parseInt(trecID[1]);
                 String name = content[3];
-                collection.put(id, name);
+                collection.put(id, name);//Puts the attraction ID and name into the collection Hashmap
                 //lineNum++;
             }
             in.close();
-        }catch(IOException e){
+        }
+        catch(IOException e)
+        {
             e.printStackTrace();
         }
 
         coordinates = new HashMap<Integer, String>();
         BufferedReader in2 = null;
         try{
-            in2 = new BufferedReader(new FileReader(Paths.get("contexts2015coordinates.csv").toFile()));
+            in2 = new BufferedReader(new FileReader(Paths.get("../DataFiles/contexts2015coordinates.csv").toFile()));//Given by Trec gives the context coordinates
             in2.readLine();
             String line = "";
             while((line = in2.readLine()) != null){
                 String[] content = line.split(",");
                 int contextID = Integer.parseInt(content[0]);
                 String coords = content[1] + "," + content[2];
-                coordinates.put(contextID, coords);
+                coordinates.put(contextID, coords);//Puts the context IDs and the coordinates into the coordinates Hashmap
             }
             in2.close();
         }catch(IOException e){
@@ -64,29 +66,34 @@ public class Profile implements Serializable
     private int user_ID;
     private int contextID;
     private Double age;
-    //private ArrayList<Integer> attractions = new ArrayList<Integer>();
     //maps each attraction category to its specific score
     private HashMap<String, Double> cat_count = new HashMap<String, Double>();
     //maps each attraction category to the amount of times its been rated
     private HashMap<String, Integer> cat_occurance = new HashMap<String, Integer>();
 
-    public ArrayList<Attraction> candidates = new ArrayList<Attraction>();
+    public ArrayList<Attraction> candidates = new ArrayList<Attraction>();//An arraylist to be filled with the candidate attractions
 
-    public ArrayList<Attraction> prefs = new ArrayList<Attraction>();
-
+    public ArrayList<Attraction> prefs = new ArrayList<Attraction>();//An arraylist to be filled with a subjects preferences 
+    /**
+     * This is the Profile classes constructor. It takes in a line of information taken from a file given by Trec and we parse out all the usefull
+     * information and store it in a meaningful and useful way
+     */
     public Profile(String line)
     {
-        JSONParser parser = new JSONParser();
+        JSONParser parser = new JSONParser();//Set up JSON parser because its easier to use JSON objects to get info from the line
         JSONObject response = null;
         try 
         {
             response = (JSONObject) parser.parse(line);
-        } catch (ParseException pe) {
+        } 
+        catch (ParseException pe) 
+        {
             System.err.println("Error: could not parse JSON response:");
             System.out.println(line);
             System.exit(1);
         }
-        catch (NullPointerException e) {
+        catch (NullPointerException e)
+        {
             System.err.println("Error: null pointer" + e);
         }
         //obtain JSON array of TREC's suggested attractions for this individual
@@ -146,25 +153,24 @@ public class Profile implements Serializable
             //we will treat these as more categories and merge them with the API returned categories
             JSONArray tags = (JSONArray) pref.get("tags");
 
-            // FROM OLD CODE
-            //retrieve the suggestion corresponding to the attr id 
-            //Attraction curr = Main.attrs.get(att_id);//THIS WILL BE CHANGED TO MAIN.ATTR.GET(att_id);
 
             String name = collection.get(att_id);
             String coords = coordinates.get(contextID);
-            //Attraction curr = new Attraction(name, coords);
 
             Attraction curr;
-            if(attrs.get(att_id) == null){
+            if(attrs.get(att_id) == null)
+            {
                 curr = new Attraction(name, coords);
                 curr.id = att_id;
                 attrs.put(att_id, curr);
-            }else{
+            }
+            else
+            {
                 curr = new Attraction(attrs.get(att_id));
             }
 
             System.out.println(curr);
-            prefs.add(curr);
+            prefs.add(curr);//Adds and prints the current attraction 
 
             double[] scores = new double[]{-4.0, -2.0, 1.0, 2.0, 4.0};
             //treat tags of examples as more categories,and assign them a score based on rating
