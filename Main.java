@@ -11,14 +11,9 @@ import java.io.*;
 public class Main
 {
     // This member is a map which maps profile IDs to their respective profile
-    public static Hashtable<Integer, Profile> profiles = new Hashtable<Integer, Profile>(); // WHY DOES THIS NEED TO BE A HASHTABLE???????
-
-    // This member is a map which maps attraction IDs to their respective attraction
-    public static HashMap<Integer, Attraction> attrs = new HashMap<Integer, Attraction>();
-
-    // Maps a context id with every attraction within that context
-    public static HashMap<Integer, ArrayList<Attraction>> contextMap = new HashMap<Integer, ArrayList<Attraction>>();
-
+    public static TreeMap<Integer, Profile> profiles = new TreeMap<Integer, Profile>(); // WHY DOES THIS NEED TO BE A HASHTABLE???????
+    //     private static String line;
+    //     private static volatile transient int count = 0;
     /**
      * This method builds each individual profile and puts them in 'profiles'. It should be
      * noted that each profile is taken from the 'batch_requests.json' file (from TREC).
@@ -33,15 +28,24 @@ public class Main
             return;
         }
         String line = "";
+        //         int numProfiles = 0;
         while((line = in.readLine()) != null){
             if(line.equals("")){
                 break;
             }
+            //             new Thread(new Runnable(){
+            //                     public void run(){
             Profile profile = new Profile(line);
             profiles.put(profile.getUser_ID(), profile);
+            //                         count++;
+            //                     }
+            //                 }).start();
+            //             numProfiles++;
             // Potentially start creating attractions based on each person's candidates
             // i.e. create a new attraction for each of their candidates, but don't fill them
         }
+
+        //         while(numProfiles != count){}
 
         Set<Integer> people = profiles.keySet();
         for(Integer num : people){
@@ -55,88 +59,12 @@ public class Main
     }
 
     /**
-     * This method builds each individual attraction and puts them in 'attractions'. 
-     */
-    private static void buildAttractions() throws IOException
-    {
-        File saveFile = null;
-        try{
-            saveFile = new File("saveFile.txt");
-        }catch(Exception ex){
-            System.err.println("Could not find saveFile.txt in main directory");
-            return;
-        }
-
-        boolean serialized = saveFile.exists();
-        if(serialized){ // Use previously created save file if one exists
-            BufferedReader in = new BufferedReader(new FileReader(saveFile));
-            String info = "";
-
-            while((info = in.readLine()) != null){ // Read every attraction from the save file
-                if(info.equals("")){
-                    continue; // Skip each empty line
-                }
-                info += "\n";
-                String line = "";
-                while((line = in.readLine()) != null && !line.equals("")){ // Append each category
-                    info += line + "\n";
-                }
-                Attraction attr = new Attraction(info);
-                attrs.put(attr.id,attr);
-            }
-            in.close();
-        }
-    }
-
-    private static void buildContextMap() throws IOException
-    {
-        BufferedReader br = new BufferedReader(new FileReader(
-                    Paths.get("batchCollectionCategorizedWithId.txt").toFile()));
-        String line = " ";
-        String name = "";
-        int attrID, conID;
-        ArrayList<Attraction> temp = null;
-        ArrayList<String> cats = new ArrayList<String>();
-        while( (line = br.readLine()) != null )
-        {
-            name = line;
-            attrID = Integer.parseInt(br.readLine());
-            conID = Integer.parseInt(br.readLine());
-            line = br.readLine();
-            while( line != null && !line.equals(""))
-            {
-                cats.add(line);
-                line = br.readLine();
-            }            
-            if (contextMap.get(conID) == null)
-            {//If first spot is empty
-                temp = new ArrayList<Attraction>();
-                temp.add(new Attraction(name, cats, attrID));
-                contextMap.put(conID, temp);
-            }
-            else
-            {//Already contains an arraylist
-                temp = contextMap.get(conID);
-                temp.add(new Attraction(name, cats, attrID));
-                contextMap.put(conID, temp);
-            }
-            cats = new ArrayList<String>();
-        }
-        br.close();
-    }
-
-    /**
      * This method is the full program which orders 30 suggestions for each profile and outputs
      * them in the 'SienaFinalOutput.json' file.
      */
     public static void main(String args[]) throws IOException
     {
-        buildAttractions();
-        buildProfiles();
-        buildContextMap();
-
         PrintWriter pw = new PrintWriter("testOutput.json");
-        //reset scores in hashtable since it's static and are saved unless JVM is reset
 
         //fill up array with categories we want to ignore for scoring purposes i.e. establishment, point of interest, etc
         Scanner in = null;
@@ -152,21 +80,41 @@ public class Main
             ignoredCats.add(in.nextLine());
         }
 
+        File saveFile = null;
+        try{
+            saveFile = new File("output.dat");
+        }catch(Exception ex){
+            System.err.println("Could not find output.dat in main directory");
+            return;
+        }
+
+        boolean serialized = saveFile.exists();
+
+        if(serialized){
+            try(FileInputStream s = new FileInputStream("output.dat")) {
+                ObjectInputStream s2 = new ObjectInputStream(s);
+                profiles = (TreeMap<Integer, Profile>)s2.readObject();
+            }catch(Exception e){
+                System.err.println("error finding output.dat");
+            }
+        }else{
+            buildProfiles();
+            try(FileOutputStream f = new FileOutputStream("output.dat")){
+                ObjectOutputStream f2 = new ObjectOutputStream(f);
+                f2.writeObject(profiles);
+                f2.flush();
+            }catch(Exception e){
+                e.printStackTrace();
+            }
+        }
+
         //cycles through the profiles in the hashmap
-        //Set<Integer> people = profiles.navigableKeySet();
-        Set<Integer> people = profiles.keySet();
-        HashMap<Integer, ArrayList<Attraction>> testMap = new HashMap<Integer, ArrayList<Attraction>>();
-        TreeMap<Integer, String> attrNames = new TreeMap<Integer, String>();
+        Set<Integer> people = profiles.navigableKeySet();
         for(Integer num : people)
         {
             Profile person = profiles.get(num);
             ArrayList<Attraction> attractions = new ArrayList<Attraction>();
-
-            for (Attraction a : contextMap.get(person.getContextID())) 
-            {
-                if (person.getAttractions().contains(a.id))
-                    attractions.add(a);
-            }
+            attractions = person.candidates;
 
             for (Attraction a : attractions)
             {
@@ -189,17 +137,12 @@ public class Main
                     a.score = -Double.MAX_VALUE;
             }
 
-            //sort attractions before the penalty function
             Collections.sort(attractions);
 
-            testMap.put(num, attractions);
             //print out the attrations and their scores before the penalty function
             for(int i = 0; i<attractions.size(); i++){
                 System.out.printf("%2d) %-35s %5.2f\n",
                     i+1, attractions.get(i).name, attractions.get(i).score);
-
-                attrNames.put(attractions.get(i).id, attractions.get(i).name);
-
             }
 
             System.out.println("Sorted Results:     " + person.getUser_ID());
@@ -221,56 +164,7 @@ public class Main
             pw.println();
         }
 
-        createAttractionIDFile(attrNames);
-
-        //         for(Integer num : people){
-        //             Profile person = profiles.get(num);
-        //             ArrayList<Attraction> attractions = testMap.get(num);
-        //             Collections.sort(attractions);
-        //             
-        //             for(int i = 0; i<attractions.size(); i++){
-        //                 System.out.printf("%2d) %-35s %5.2f\n",
-        //                     i+1, attractions.get(i).name, attractions.get(i).score);
-        //             }
-        // 
-        //             System.out.println("Sorted Results:     " + person.getUser_ID());
-        //             
-        //             pw.print("{\"body\": {\"suggestions\": [");
-        // 
-        //             int size = attractions.size();
-        // 
-        //             for (int k=0; k<size; k++){
-        //                 int currID = attractions.get(k).id;
-        //                 String id = "00000000" + currID;
-        //                 id = id.substring(id.length()-8);
-        //                 pw.print("\"TRECCS-" + id + "-" + person.getContextID() + "\"");
-        //                 if(k != size - 1) {pw.print(",");}
-        // 
-        //             }
-        //             pw.print("]}, \"groupid\": \"Siena_SUCCESS\", \"id\": " + num +
-        //                 ", \"runid\": \"SCIAIrunA\"}");
-        //             pw.println();
-        //         }
-
         in.close();
         pw.close();
-    }
-
-    private static void createAttractionIDFile(TreeMap<Integer, String> attrNames) throws IOException{
-        PrintWriter writer = new PrintWriter("11WithNames.txt");
-        BufferedReader in = new BufferedReader(new FileReader(Paths.get("11Run.csv").toFile()));
-        String line = "";
-        while((line = in.readLine()) != null){
-            String[] row = line.split(",");
-            int userID = Integer.parseInt(row[0]);
-            String[] temp = row[2].split("-");
-            int attrID = Integer.parseInt(temp[1]);
-            writer.println(userID + " - " + row[3] + " - " + attrNames.get(attrID));
-        }
-        //         Set<Integer> attrIDs = attrNames.navigableKeySet();
-        //         for(Integer id : attrIDs){
-        //             writer.println(id + ": " + attrNames.get(id));
-        //         }
-        writer.close();
     }
 }
