@@ -33,24 +33,30 @@ import org.jsoup.select.Elements;
  * @author Tristan Canova, Dan Carpenter, Kevin Danaher, Neil Devine
  * @version 0.1
  */
-public class Attraction implements Comparable<Attraction>, Serializable
+public class Attraction 
 {
-    public String name;
-    //private double lat;
-    //private double lng;
-    //private String city;
+    private String name;
     private int contextID;
-    public int id;
+    private int id;
     private double rating;
-    public ArrayList<String> categories;
+    private ArrayList<String> categories;
 
-    public Double score = 0.0;
-    public int count;
+    /**
+     * An inner class used as a way to store a rating and list of categories 
+     * that is returned by each call to an API
+     */
     class RatingAndCategories 
     {
         private double apiRating;
         private ArrayList<String> apiCategories;
 
+        /**
+         * Constructor for an object containing information about
+         * an attraction that was taken from the APIs
+         *
+         * @param r the attraction's rating
+         * @param c a list of categories associated with the attraction
+         */
         private RatingAndCategories(double r, ArrayList<String> c) 
         {
             apiRating = r;
@@ -69,6 +75,7 @@ public class Attraction implements Comparable<Attraction>, Serializable
     {
         RatingAndCategories fs, yp, gp;
         fs = yp = gp = null;
+        //query each of the APIs
         try 
         {
             fs = searchFourSquare(coords, title);
@@ -104,7 +111,12 @@ public class Attraction implements Comparable<Attraction>, Serializable
         this.rating = 0;
         ArrayList<String> combinedCategories = new ArrayList<String>();
         //a rating of 0 is an indication that no real rating was found
+        //if an API returns nothing, the corresponding RatingAndCategories
+        //object will be null and no rating or categories from that API will be taken
         if (fs != null) {
+            System.out.println("Foursquare is a go");
+            //currently, we Foursquare is given more sway than the other APIs
+            //when it comes to assigning a rating
             if (fs.apiRating != 0) {
                 rating = fs.apiRating*2;
                 numRatings += 2;
@@ -114,6 +126,7 @@ public class Attraction implements Comparable<Attraction>, Serializable
             }
         }
         if (yp != null) {
+            System.out.println("Yellow Pages is a go");
             if (yp.apiRating != 0) {
                 rating += yp.apiRating;
                 numRatings += 1;
@@ -124,6 +137,7 @@ public class Attraction implements Comparable<Attraction>, Serializable
             }
         }
         if (gp != null){
+            System.out.println("Google Places is a go");
             if (gp.apiRating != 0) {
                 rating += gp.apiRating;
                 numRatings += 1;
@@ -133,25 +147,12 @@ public class Attraction implements Comparable<Attraction>, Serializable
                     combinedCategories.add(cat);
             }
         }
+        
+        //merge all the data together
         if (numRatings != 0)
             this.rating /= numRatings;
         else this.rating = 0;
         this.categories = combinedCategories;
-    }
-
-    /**
-     * Copy constructor for Attraction Objects
-     * @param attr The attraction to be copied
-     */
-    public Attraction(Attraction attr){
-        this.name = attr.name;
-        this.contextID = attr.contextID;
-        this.id = attr.id;
-        this.rating = attr.rating;
-        this.categories = attr.categories;
-
-        this.score = attr.score;
-        this.count = attr.count;
     }
 
     /**
@@ -208,7 +209,6 @@ public class Attraction implements Comparable<Attraction>, Serializable
             //
             return null;
         }
-
         //array of terms used by FourSquareAPI inside of the JSON response to separate data
         String[] fqTerms = new String[]{"name", "location", "id", "contact", "rating", "categories"};
 
@@ -217,18 +217,13 @@ public class Attraction implements Comparable<Attraction>, Serializable
         JSONArray results = (JSONArray) venues.get("venues");
 
         //Check if FourSquare returned any results
-        JSONObject curr;
-        try{
-            if (results.size() == 0)
-            {
-                //No results found, return a blank suggestion
-                return null;
-            }
-            //System.out.println(results);
-            curr = (JSONObject) results.get(0);
-        }catch(Exception ex){
+        if (results.size() == 0)
+        {
+            //No results found, return a blank suggestion
             return null;
         }
+        //System.out.println(results);
+        JSONObject curr = (JSONObject) results.get(0);
 
         //new code to try and scrape rating from FourSquare page
         //works sometimes, but other times the menu field doesnt even exist
@@ -247,17 +242,13 @@ public class Attraction implements Comparable<Attraction>, Serializable
                 }
                 first = false;
             }
-            try{
-                adjustedRating = Double.parseDouble(rating);
-            }catch(NumberFormatException ex){
-                adjustedRating = 0;
-            }
+            adjustedRating = Double.parseDouble(rating);
             //mapping FourSquare ratings to a 1-5 scale as follows:
             //1&2 -> 1, 3&4 -> 2, 5&6 -> 3, 7&8 -> 4, 9&10 -> 5
             adjustedRating = Math.ceil(adjustedRating/2.0);
         }
         else {
-            adjustedRating = 0.0;
+            rating = "0.0";
         }
 
         JSONArray cats = ((JSONArray)(curr.get("categories")));
@@ -340,7 +331,6 @@ public class Attraction implements Comparable<Attraction>, Serializable
         else {
             results = (JSONArray) cur.get("searchListing");
         }
-        results = (JSONArray) (cur.get("searchListing"));
         //else System.out.println(cur);
 
         String rating = "";
@@ -449,27 +439,22 @@ public class Attraction implements Comparable<Attraction>, Serializable
         }
     }
 
-    public int compareTo(Attraction other)
-    {
-        if(this.score < other.score)
-        {
-            return 1;
-        }
-        else if (this.score > other.score)
-        {
-            return -1;
-        }
-        return 0;
-    }
-
+    /**
+     * toString method to allow you to print out the Attraction object
+     *
+     * @return a nicely formatted version of the Attraction object
+     */
     public String toString() {
         String out = name + "\n";
-        out += id + "\n";
         out += rating +"\n";
         out += categories +"\n";
         return out;
     }
 
+    /**
+     * Test method to run API interaction
+     *
+     */
     public static void test() {
         Scanner in = new Scanner(System.in);
         System.out.print("Attraction: ");
