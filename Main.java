@@ -5,15 +5,15 @@ import java.io.*;
 /**
  * This class is the Main Program of the Contextual Suggestion TREC Track for Siena College. 
  * 
- * @author (your name) 
- * @version (a version number or a date)
+ * @author Tristan Canova, Dan Carpenter, Neil Devine
+ * @version 6/8/16
  */
 public class Main
 {
-    // This member is a map which maps profile IDs to their respective profile
-    public static TreeMap<Integer, Profile> profiles = new TreeMap<Integer, Profile>(); // WHY DOES THIS NEED TO BE A HASHTABLE???????
-    //     private static String line;
-    //     private static volatile transient int count = 0;
+    /**
+     * This member is a map which maps profile IDs to their respective profile; to mimic 2015 results, use a Hashtable for this member.
+     */ 
+    public static TreeMap<Integer, Profile> profiles = new TreeMap<Integer, Profile>();
     /**
      * This method builds each individual profile and puts them in 'profiles'. It should be
      * noted that each profile is taken from the 'batch_requests.json' file (from TREC).
@@ -28,30 +28,19 @@ public class Main
             return;
         }
         String line = "";
-        //         int numProfiles = 0;
-        while((line = in.readLine()) != null){
+        while((line = in.readLine()) != null){ // For each line in batch_requests
             if(line.equals("")){
                 break;
             }
-            //             new Thread(new Runnable(){
-            //                     public void run(){
             Profile profile = new Profile(line);
             profiles.put(profile.getUser_ID(), profile);
-            //                         count++;
-            //                     }
-            //                 }).start();
-            //             numProfiles++;
-            // Potentially start creating attractions based on each person's candidates
-            // i.e. create a new attraction for each of their candidates, but don't fill them
         }
-
-        //         while(numProfiles != count){}
 
         Set<Integer> people = profiles.keySet();
         for(Integer num : people){
             Profile person = profiles.get(num);
             Set<String> keys = person.getCat_occurance().keySet();
-            for(String cat: keys){
+            for(String cat : keys){
                 person.getCat_count().put(cat, (person.getCat_count().get(cat)/person.getCat_occurance().get(cat)));
             }
         }
@@ -60,18 +49,26 @@ public class Main
 
     /**
      * This method is the full program which orders 30 suggestions for each profile and outputs
-     * them in the 'SienaFinalOutput.json' file.
+     * them to a JSON file.
+     * @param args Command Line Arguments
      */
     public static void main(String args[]) throws IOException
     {
+        /**
+         * PrintWriter for final output file. This file will contain each profiles rated attractions in order from left to right, with the leftmost
+         * attractions being the most likely to be relevant, while the rightmost attractions are the least likely to be relevant.
+         */
         PrintWriter pw = new PrintWriter("testOutput.json");
 
-        //fill up array with categories we want to ignore for scoring purposes i.e. establishment, point of interest, etc
+        /**
+         * File IO for UneccessaryCats.txt file. This file contains a list of unnecessary categories. These categories are then ignored by
+         * the scoring algorithm.
+         */
         Scanner in = null;
         try{
-            in = new Scanner(new File("UneccessaryCats.txt"));
+            in = new Scanner(new File("../DataFiles/UneccessaryCats.txt"));
         }catch(FileNotFoundException ex){
-            System.err.println("UneccessaryCats.txt was not found in the main directory");
+            System.err.println("UneccessaryCats.txt was not found in the DataFiles directory");
             return;
         }
         ArrayList<String> ignoredCats = new ArrayList<String>();
@@ -80,26 +77,33 @@ public class Main
             ignoredCats.add(in.nextLine());
         }
 
+        /**
+         * File IO for serialized profiles.dat file. profiles.dat contains a saved version of the profiles TreeMap data member (of this class). If this
+         * file already exists, the program loads it and uses the saved profiles used previously. If it does not, then the program recreates the profiles
+         * TreeMap object. One would want to recreate the profiles object so that they may re-access the API's and retrieve either more categories or store
+         * more data to be manipulated in the scoring algorithm.
+         */
+
         File saveFile = null;
         try{
-            saveFile = new File("output.dat");
+            saveFile = new File("../DataFiles/profiles.dat");
         }catch(Exception ex){
-            System.err.println("Could not find output.dat in main directory");
+            System.err.println("Could not find profiles.dat in DataFiles directory");
             return;
         }
 
         boolean serialized = saveFile.exists();
 
-        if(serialized){
-            try(FileInputStream s = new FileInputStream("output.dat")) {
+        if(serialized){ // If the profiles object exists, use it
+            try(FileInputStream s = new FileInputStream("../DataFiles/profiles.dat")) {
                 ObjectInputStream s2 = new ObjectInputStream(s);
                 profiles = (TreeMap<Integer, Profile>)s2.readObject();
             }catch(Exception e){
-                System.err.println("error finding output.dat");
+                System.err.println("error finding profiles.dat");
             }
-        }else{
+        }else{ // If it doesn't, recreate it
             buildProfiles();
-            try(FileOutputStream f = new FileOutputStream("output.dat")){
+            try(FileOutputStream f = new FileOutputStream("../DataFiles/profiles.dat")){
                 ObjectOutputStream f2 = new ObjectOutputStream(f);
                 f2.writeObject(profiles);
                 f2.flush();
@@ -108,17 +112,18 @@ public class Main
             }
         }
 
-        //cycles through the profiles in the hashmap
-        Set<Integer> people = profiles.navigableKeySet();
-        for(Integer num : people)
+        Set<Integer> profileIDs = profiles.navigableKeySet(); // A navigable (sorted) set of profile IDs
+        for(Integer id : profileIDs) // For each Profile ID
         {
-            Profile person = profiles.get(num);
-            ArrayList<Attraction> attractions = new ArrayList<Attraction>();
-            attractions = person.candidates;
+            Profile person = profiles.get(id); // Get an individual Profile Object
+            ArrayList<Attraction> attractions = person.candidates; // Get the list of all of its candidates (attractions to rate)
 
+            /**
+             * Main Scoring Algorithm: this algorithm scores each of the Profile's candidates
+             */
             for (Attraction a : attractions)
             {
-                boolean hasCategories = false; 
+                boolean hasCategories = false; // Whether this attraction ('a') has any categories
                 for(String cat : a.categories)
                 {
                     hasCategories = true;
@@ -129,41 +134,42 @@ public class Main
                     }
                 }
 
-                if(a.count > 0){
+                if(a.count > 0)
                     a.score = a.score / a.count;
-                }
-                //place the attractions that don't have categories at the very end of the suggested list
-                else if(!hasCategories)
+                else if(!hasCategories) // Place the attractions that don't have categories at the very end of the suggested list
                     a.score = -Double.MAX_VALUE;
             }
+            /**
+             * End of scoring algorithm
+             */
 
-            Collections.sort(attractions);
+            Collections.sort(attractions); // Sort the list of attractions by their score.
 
-            //print out the attrations and their scores before the penalty function
+            // Print out the sorted list of candidates to the console.
             for(int i = 0; i<attractions.size(); i++){
                 System.out.printf("%2d) %-35s %5.2f\n",
                     i+1, attractions.get(i).name, attractions.get(i).score);
             }
-
             System.out.println("Sorted Results:     " + person.getUser_ID());
 
+            /**
+             * Writing to the output file
+             */
             pw.print("{\"body\": {\"suggestions\": [");
 
-            int size = attractions.size();
-
-            for (int k=0; k<size; k++){
+            for (int k=0; k<attractions.size(); k++){
                 int currID = attractions.get(k).id;
-                String id = "00000000" + currID;
-                id = id.substring(id.length()-8);
+                String attrID = "00000000" + currID;
+                attrID = attrID.substring(attrID.length()-8);
                 pw.print("\"TRECCS-" + id + "-" + person.getContextID() + "\"");
-                if(k != size - 1) {pw.print(",");}
-
+                if(k != attractions.size() - 1) {pw.print(",");}
             }
-            pw.print("]}, \"groupid\": \"Siena_SUCCESS\", \"id\": " + num +
+            pw.print("]}, \"groupid\": \"Siena_SUCCESS\", \"id\": " + id +
                 ", \"runid\": \"SCIAIrunA\"}");
             pw.println();
         }
 
+        // Close IO objects
         in.close();
         pw.close();
     }
