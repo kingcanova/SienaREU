@@ -75,7 +75,7 @@ public class Profile implements Serializable
 
     public ArrayList<Attraction> prefs = new ArrayList<Attraction>();//An arraylist to be filled with a subjects preferences 
     /**
-     * This is the Profile classes constructor. It takes in a line of information taken from a file given by Trec and we parse out all the usefull
+     * This is the Profile class constructor. It takes in a line of information taken from a file given by Trec and we parse out all the usefull
      * information and store it in a meaningful and useful way
      */
     public Profile(String line)
@@ -96,7 +96,7 @@ public class Profile implements Serializable
         {
             System.err.println("Error: null pointer" + e);
         }
-        //obtain JSON array of TREC's suggested attractions for this individual
+        //obtain JSON array of TREC's suggested "candidate" attractions for this individual
         JSONArray cands = (JSONArray) response.get("candidates");
         System.out.println("___________Candidates__________\n");
         for(int i=0;i<cands.size();i++)
@@ -119,7 +119,6 @@ public class Profile implements Serializable
 
             System.out.println(attr);
             candidates.add(attr);
-            //this.attractions.add(Integer.parseInt(elements[1]));
         }
         //obtain all other information from JSON response and store in instance variables
         JSONObject body = (JSONObject) response.get("body");//This specifies where we are looking for the information
