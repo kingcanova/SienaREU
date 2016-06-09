@@ -69,7 +69,7 @@ public class Profile implements Serializable
     //maps each attraction category to its specific score
     private HashMap<String, Double> cat_count = new HashMap<String, Double>();
     //maps each attraction category to the amount of times its been rated
-    private HashMap<String, Integer> cat_occurance = new HashMap<String, Integer>();
+    private HashMap<String, Integer> cat_occurrence = new HashMap<String, Integer>();
 
     public ArrayList<Attraction> candidates = new ArrayList<Attraction>();//An arraylist to be filled with the candidate attractions
 
@@ -179,18 +179,18 @@ public class Profile implements Serializable
                 {
                     String tag = t.toString();
                     //if category/tag isnt in the count(score) table yet, 
-                    //put it in the count and occurance tables
+                    //put it in the count and occurrence tables
                     if (this.cat_count.get(tag) == null)
                     {
                         this.cat_count.put(tag, 0.0);
-                        this.cat_occurance.put(tag, 0);
+                        this.cat_occurrence.put(tag, 0);
                     }
                     //if category is given a rating, add the appropriate score to its value in the
-                    //score table. Also add 1 to its occurance value. 
+                    //score table. Also add 1 to its occurrence value. 
                     if(rating != -1)
                     {
                         this.cat_count.put(tag, this.cat_count.get(tag) + scores[rating]);
-                        this.cat_occurance.put(tag, this.cat_occurance.get(tag) +1);
+                        this.cat_occurrence.put(tag, this.cat_occurrence.get(tag) +1);
                     }
                 }      
             }
@@ -203,12 +203,12 @@ public class Profile implements Serializable
                     if (this.cat_count.get(cat) == null)
                     {
                         this.cat_count.put(cat, 0.0);
-                        this.cat_occurance.put(cat, 0);
+                        this.cat_occurrence.put(cat, 0);
                     }
                     if(rating != -1)
                     {
                         this.cat_count.put(cat, this.cat_count.get(cat) + scores[rating]);
-                        this.cat_occurance.put(cat, this.cat_occurance.get(cat) +1);
+                        this.cat_occurrence.put(cat, this.cat_occurrence.get(cat) +1);
                     }
                 }      
             }
@@ -236,9 +236,9 @@ public class Profile implements Serializable
         return this.cat_count;
     }
 
-    protected HashMap<String, Integer> getCat_occurance()
+    protected HashMap<String, Integer> getCat_occurrence()
     {
-        return this.cat_occurance;
+        return this.cat_occurrence;
     }
 
     /**

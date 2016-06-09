@@ -22,9 +22,9 @@ public class Main
     {
         BufferedReader in = null;
         try{
-            in = new BufferedReader(new FileReader(Paths.get("batch_requests.json").toFile()));
+            in = new BufferedReader(new FileReader(Paths.get("../DataFiles/batch_requests.json").toFile()));
         }catch(FileNotFoundException ex){
-            System.err.println("Could not find batch_requests.json in main directory");
+            System.err.println("Could not find batch_requests.json in Data Files directory");
             return;
         }
         String line = "";
@@ -39,9 +39,9 @@ public class Main
         Set<Integer> people = profiles.keySet();
         for(Integer num : people){
             Profile person = profiles.get(num);
-            Set<String> keys = person.getCat_occurance().keySet();
+            Set<String> keys = person.getCat_occurrence().keySet();
             for(String cat : keys){
-                person.getCat_count().put(cat, (person.getCat_count().get(cat)/person.getCat_occurance().get(cat)));
+                person.getCat_count().put(cat, (person.getCat_count().get(cat)/person.getCat_occurrence().get(cat)));
             }
         }
         in.close();
