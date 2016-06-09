@@ -11,7 +11,7 @@ import org.json.simple.parser.ParseException;
  * Write a description of class Profile here.
  * 
  * @author Tristan Canova, Neil Divine, Dan Carpenter
- * @version 6/1/16
+ * @version 6/9/16
  */
 public class Profile implements Serializable
 {
@@ -63,17 +63,21 @@ public class Profile implements Serializable
             e.printStackTrace();
         }
     }
-    private int user_ID;
-    private int contextID;
-    private Double age;
+    public int user_ID;
+    public int contextID;
+    public Double age;
     //maps each attraction category to its specific score
-    private HashMap<String, Double> cat_count = new HashMap<String, Double>();
+    public HashMap<String, Double> cat_count = new HashMap<String, Double>();
     //maps each attraction category to the amount of times its been rated
-    private HashMap<String, Integer> cat_occurrence = new HashMap<String, Integer>();
+    public HashMap<String, Integer> cat_occurance = new HashMap<String, Integer>();
 
     public ArrayList<Attraction> candidates = new ArrayList<Attraction>();//An arraylist to be filled with the candidate attractions
 
     public ArrayList<Attraction> prefs = new ArrayList<Attraction>();//An arraylist to be filled with a subjects preferences 
+
+    // Data relevant to their profile
+    public char gender;
+    public String group, season, trip_type, duration;
     /**
      * This is the Profile class constructor. It takes in a line of information taken from a file given by Trec and we parse out all the usefull
      * information and store it in a meaningful and useful way
@@ -124,15 +128,27 @@ public class Profile implements Serializable
         JSONObject body = (JSONObject) response.get("body");//This specifies where we are looking for the information
         this.user_ID = ((Long)response.get("id")).intValue();//This gets the ID number at the end of the string
         System.out.println("For Person: " + user_ID +  "\n");
-        //             String group = body.get("group").toString();
-        //             String season = body.get("season").toString();
-        //             String trip_type = body.get("trip_type").toString();
-        //             String duration = body.get("duration").toString();
+        JSONObject individual = (JSONObject) body.get("person");
+        if(body.get("group") != null){
+            group = body.get("group").toString();
+        }
+        if(body.get("season") != null){
+            season = body.get("season").toString();
+        }
+        if(body.get("trip_type") != null){
+            trip_type = body.get("trip_type").toString();
+        }
+        if(body.get("duration") != null){
+            duration = body.get("duration").toString();
+        }
+        if(individual.get("gender") != null){
+            gender = Character.toUpperCase(individual.get("gender").toString().charAt(0));
+        }
+        if(individual.get("age") != null){
+            age = (Double)individual.get("age");
+        }
         JSONObject location = (JSONObject) body.get("location");//Changing from body to location for info searching
         this.contextID = ((Long)location.get("id")).intValue();
-        JSONObject individual = (JSONObject) body.get("person");
-        //             String gender = individual.get("gender").toString();
-        this.age = (Double)individual.get("age");
 
         //Preferences is a JSON Array containing the list of attractions a profile rated
         //This cycles through the array, grabbing the attraction ID and rating, also
@@ -151,7 +167,6 @@ public class Profile implements Serializable
             //obtain JSON Array of tags(reasons why person liked attraction)
             //we will treat these as more categories and merge them with the API returned categories
             JSONArray tags = (JSONArray) pref.get("tags");
-
 
             String name = collection.get(att_id);
             String coords = coordinates.get(contextID);
@@ -179,18 +194,18 @@ public class Profile implements Serializable
                 {
                     String tag = t.toString();
                     //if category/tag isnt in the count(score) table yet, 
-                    //put it in the count and occurrence tables
+                    //put it in the count and occurance tables
                     if (this.cat_count.get(tag) == null)
                     {
                         this.cat_count.put(tag, 0.0);
-                        this.cat_occurrence.put(tag, 0);
+                        this.cat_occurance.put(tag, 0);
                     }
                     //if category is given a rating, add the appropriate score to its value in the
-                    //score table. Also add 1 to its occurrence value. 
+                    //score table. Also add 1 to its occurance value. 
                     if(rating != -1)
                     {
                         this.cat_count.put(tag, this.cat_count.get(tag) + scores[rating]);
-                        this.cat_occurrence.put(tag, this.cat_occurrence.get(tag) +1);
+                        this.cat_occurance.put(tag, this.cat_occurance.get(tag) +1);
                     }
                 }      
             }
@@ -203,42 +218,17 @@ public class Profile implements Serializable
                     if (this.cat_count.get(cat) == null)
                     {
                         this.cat_count.put(cat, 0.0);
-                        this.cat_occurrence.put(cat, 0);
+                        this.cat_occurance.put(cat, 0);
                     }
                     if(rating != -1)
                     {
                         this.cat_count.put(cat, this.cat_count.get(cat) + scores[rating]);
-                        this.cat_occurrence.put(cat, this.cat_occurrence.get(cat) +1);
+                        this.cat_occurance.put(cat, this.cat_occurance.get(cat) +1);
                     }
                 }      
             }
         }         
         System.out.println();
-    }
-
-    protected int getUser_ID()
-    {
-        return this.user_ID;
-    }
-
-    protected int getContextID()
-    {
-        return this.contextID;
-    }
-
-    protected Double getAge()
-    {
-        return this.age;
-    }
-
-    protected HashMap<String, Double> getCat_count()
-    {
-        return this.cat_count;
-    }
-
-    protected HashMap<String, Integer> getCat_occurrence()
-    {
-        return this.cat_occurrence;
     }
 
     /**

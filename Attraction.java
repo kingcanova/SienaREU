@@ -31,7 +31,7 @@ import org.jsoup.select.Elements;
  * An Attraction contains all the information on a specific point of interest.
  * 
  * @author Tristan Canova, Dan Carpenter, Kevin Danaher, Neil Devine
- * @version 0.1
+ * @version 6/9/16
  */
 public class Attraction implements Comparable<Attraction>, Serializable
 {
@@ -39,30 +39,18 @@ public class Attraction implements Comparable<Attraction>, Serializable
     //private double lat;
     //private double lng;
     //private String city;
-    private int contextID;
+    public int contextID;
     public int id;
-    private double rating;
+    public double rating;
     public ArrayList<String> categories;
 
     public Double score = 0.0;
     public int count;
-    
-    /**
-     * An inner class used as a way to store a rating and list of categories 
-     * that is returned by each call to an API
-     */
     class RatingAndCategories 
     {
         private double apiRating;
         private ArrayList<String> apiCategories;
 
-        /**
-         * Constructor for an object containing information about
-         * an attraction that was taken from the APIs
-         *
-         * @param r the attraction's rating
-         * @param c a list of categories associated with the attraction
-         */
         private RatingAndCategories(double r, ArrayList<String> c) 
         {
             apiRating = r;
@@ -81,7 +69,6 @@ public class Attraction implements Comparable<Attraction>, Serializable
     {
         RatingAndCategories fs, yp, gp;
         fs = yp = gp = null;
-        //query each of the APIs
         try 
         {
             fs = searchFourSquare(coords, title);
@@ -117,11 +104,7 @@ public class Attraction implements Comparable<Attraction>, Serializable
         this.rating = 0;
         ArrayList<String> combinedCategories = new ArrayList<String>();
         //a rating of 0 is an indication that no real rating was found
-        //if an API returns nothing, the corresponding RatingAndCategories
-        //object will be null and no rating or categories from that API will be taken
         if (fs != null) {
-            //currently, we Foursquare is given more sway than the other APIs
-            //when it comes to assigning a rating
             if (fs.apiRating != 0) {
                 rating = fs.apiRating*2;
                 numRatings += 2;
@@ -150,7 +133,6 @@ public class Attraction implements Comparable<Attraction>, Serializable
                     combinedCategories.add(cat);
             }
         }
-        //merge data from all three APIs together
         if (numRatings != 0)
             this.rating /= numRatings;
         else this.rating = 0;
@@ -478,11 +460,6 @@ public class Attraction implements Comparable<Attraction>, Serializable
         return 0;
     }
 
-    /**
-     * toString method to allow you to print out the Attraction object
-     *
-     * @return a nicely formatted version of the Attraction object
-     */
     public String toString() {
         String out = name + "\n";
         out += id + "\n";
@@ -491,10 +468,6 @@ public class Attraction implements Comparable<Attraction>, Serializable
         return out;
     }
 
-    /**
-     * Test method to run API interaction
-     *
-     */
     public static void test() {
         Scanner in = new Scanner(System.in);
         System.out.print("Attraction: ");

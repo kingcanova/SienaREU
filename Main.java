@@ -2,11 +2,15 @@ import java.util.*;
 import java.nio.*;
 import java.nio.file.*;
 import java.io.*;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 /**
  * This class is the Main Program of the Contextual Suggestion TREC Track for Siena College. 
  * 
  * @author Tristan Canova, Dan Carpenter, Neil Devine
- * @version 6/8/16
+ * @version 6/9/16
  */
 public class Main
 {
@@ -24,7 +28,7 @@ public class Main
         try{
             in = new BufferedReader(new FileReader(Paths.get("../DataFiles/batch_requests.json").toFile()));
         }catch(FileNotFoundException ex){
-            System.err.println("Could not find batch_requests.json in Data Files directory");
+            System.err.println("Could not find batch_requests.json in DataFiles directory");
             return;
         }
         String line = "";
@@ -33,15 +37,15 @@ public class Main
                 break;
             }
             Profile profile = new Profile(line);
-            profiles.put(profile.getUser_ID(), profile);
+            profiles.put(profile.user_ID, profile);
         }
 
         Set<Integer> people = profiles.keySet();
         for(Integer num : people){
             Profile person = profiles.get(num);
-            Set<String> keys = person.getCat_occurrence().keySet();
+            Set<String> keys = person.cat_occurance.keySet();
             for(String cat : keys){
-                person.getCat_count().put(cat, (person.getCat_count().get(cat)/person.getCat_occurrence().get(cat)));
+                person.cat_count.put(cat, (person.cat_count.get(cat)/person.cat_occurance.get(cat)));
             }
         }
         in.close();
@@ -58,7 +62,7 @@ public class Main
          * PrintWriter for final output file. This file will contain each profiles rated attractions in order from left to right, with the leftmost
          * attractions being the most likely to be relevant, while the rightmost attractions are the least likely to be relevant.
          */
-        PrintWriter pw = new PrintWriter("testOutput.json");
+        PrintWriter pw = new PrintWriter("testOutput.json"); 
 
         /**
          * File IO for UneccessaryCats.txt file. This file contains a list of unnecessary categories. These categories are then ignored by
@@ -127,11 +131,25 @@ public class Main
                 for(String cat : a.categories)
                 {
                     hasCategories = true;
-                    if(person.getCat_count().get(cat) != null && !ignoredCats.contains(cat))
+                    if(person.cat_count.get(cat) != null && !ignoredCats.contains(cat))
                     {
-                        a.score += person.getCat_count().get(cat);
+                        a.score += person.cat_count.get(cat);
                         a.count += 1;
                     }
+                    // Messing around with the scoring algorithm...
+                    //                     if(cat.equals("bar")){
+                    //                         a.score = -1.0;
+                    //                     }
+                    //                     else if(cat.equals("museum") || cat.equals("park")){
+                    //                         a.score= a.score * 2;
+                    //                     }
+                    //                     else if(cat.equals("meal_takeaway")){
+                    //                         a.score += 5;
+                    //                     }
+                    //                     else if(cat.equals("lodging")){
+                    //                         a.score = a.score / 2;
+                    //                     }
+
                 }
 
                 if(a.count > 0)
@@ -150,7 +168,7 @@ public class Main
                 System.out.printf("%2d) %-35s %5.2f\n",
                     i+1, attractions.get(i).name, attractions.get(i).score);
             }
-            System.out.println("Sorted Results:     " + person.getUser_ID());
+            System.out.println("Sorted Results:     " + person.user_ID);
 
             /**
              * Writing to the output file
@@ -161,7 +179,7 @@ public class Main
                 int currID = attractions.get(k).id;
                 String attrID = "00000000" + currID;
                 attrID = attrID.substring(attrID.length()-8);
-                pw.print("\"TRECCS-" + id + "-" + person.getContextID() + "\"");
+                pw.print("\"TRECCS-" + attrID + "-" + person.contextID + "\"");
                 if(k != attractions.size() - 1) {pw.print(",");}
             }
             pw.print("]}, \"groupid\": \"Siena_SUCCESS\", \"id\": " + id +
