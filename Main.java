@@ -136,6 +136,14 @@ public class Main
                         a.score += person.cat_count.get(cat);
                         a.count += 1;
                     }
+                    
+                    /**
+                     * NOTES:
+                     * Fast food and young men
+                     * Gyms and younger people
+                     */
+                    
+                    
                     // Messing around with the scoring algorithm...
                     //                     if(cat.equals("bar")){
                     //                         a.score = -1.0;
