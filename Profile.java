@@ -18,8 +18,8 @@ public class Profile implements Serializable
     // TREC / Attraction ID -> Attraction Name
     transient static HashMap<Integer, String> collection;
 
-    // Context ID -> Coordinates
-    transient static HashMap<Integer, String> coordinates;
+    // Context ID -> Context (location and coordinates)
+    transient static HashMap<Integer, Context> contexts;
 
     // Attraction ID -> Attraction Object
     transient static HashMap<Integer, Attraction> attrs = new HashMap<Integer, Attraction>();
@@ -37,7 +37,6 @@ public class Profile implements Serializable
                 int id = Integer.parseInt(trecID[1]);
                 String name = content[3];
                 collection.put(id, name);//Puts the attraction ID and name into the collection Hashmap
-                //lineNum++;
             }
             in.close();
         }
@@ -46,17 +45,25 @@ public class Profile implements Serializable
             e.printStackTrace();
         }
 
-        coordinates = new HashMap<Integer, String>();
+        contexts = new HashMap<Integer, Context>();
         BufferedReader in2 = null;
         try{
-            in2 = new BufferedReader(new FileReader(Paths.get("../DataFiles/contexts2015coordinates.csv").toFile()));//Given by Trec gives the context coordinates
-            in2.readLine();
+            /**
+             * Please Note: contexts2015.csv is a *combination* of contexts2015.csv (The original) and contexts2015coordinates.csv. The original
+             * contexts2015.csv contained context IDs, state, and city names, while contexts2015coordinates.csv contained context IDs, latitude, 
+             * and longitude information. We merely combined the two files for convenience :)
+             */
+            in2 = new BufferedReader(new FileReader(Paths.get("../DataFiles/contexts2015.csv").toFile()));//Given by Trec gives the context coordinates
+            in2.readLine(); // Consume the first line
             String line = "";
             while((line = in2.readLine()) != null){
                 String[] content = line.split(",");
                 int contextID = Integer.parseInt(content[0]);
-                String coords = content[1] + "," + content[2];
-                coordinates.put(contextID, coords);//Puts the context IDs and the coordinates into the coordinates Hashmap
+                String loc = content[1] + ", " + content[2];
+                String coords = content[3] + "," + content[4];
+                String geoID = content[5];
+                Context context = new Context(loc, coords, geoID);
+                contexts.put(contextID, context);// Associates the Context object with its context ID
             }
             in2.close();
         }catch(IOException e){
@@ -111,10 +118,10 @@ public class Profile implements Serializable
             int attrID = Integer.parseInt(elements[1]);
             int contextID = Integer.parseInt(elements[2]);
             String name = collection.get(attrID).split(" - ")[0];
-            String coords = coordinates.get(contextID);
+            Context context = contexts.get(contextID);
             Attraction attr;
             if(attrs.get(attrID) == null){
-                attr = new Attraction(name, coords);
+                attr = new Attraction(name, context);
                 attr.id = attrID;
                 attrs.put(attrID, attr);
             }else{
@@ -169,12 +176,12 @@ public class Profile implements Serializable
             JSONArray tags = (JSONArray) pref.get("tags");
 
             String name = collection.get(att_id).split(" - ")[0];
-            String coords = coordinates.get(contextID);
+            Context context = contexts.get(contextID);
 
             Attraction curr;
             if(attrs.get(att_id) == null)
             {
-                curr = new Attraction(name, coords);
+                curr = new Attraction(name, context);
                 curr.id = att_id;
                 attrs.put(att_id, curr);
             }

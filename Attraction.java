@@ -46,16 +46,36 @@ public class Attraction implements Comparable<Attraction>, Serializable
 
     public Double score = 0.0;
     public int count;
-    class RatingAndCategories 
+
+    // Specifically for TripAdvisor:
+    public boolean certificate; // Whether this attraction has a 'Certificate of Excellence'
+    public int numReviews; // The number of people who reviewed this attraction
+    public String travelerTypes; // A List of the most relevant traveler types on TripAdvisor
+    public String seasons; // A List of the most relevant seasons to go to this attraction
+    /**
+     * Plain Data Structure for storing relevant information for a given attraction based on its API search results
+     */
+    class WebInfo 
     {
+        // For most API's:
         private double apiRating;
         private ArrayList<String> apiCategories;
 
-        private RatingAndCategories(double r, ArrayList<String> c) 
+        // Constructor for most API's
+        private WebInfo(double r, ArrayList<String> c) 
         {
             apiRating = r;
             apiCategories = c;
         }
+
+        //         // Constructor for TripAdvisor
+        //         private WebInfo(double r, ArrayList<String> c, boolean cert, int reviews, String types, String s){
+        //             this(r, c);
+        //             certificate = cert;
+        //             numReviews = reviews;
+        //             travelerTypes = types;
+        //             seasons = s;
+        //         }
     }
 
     /**
@@ -65,10 +85,13 @@ public class Attraction implements Comparable<Attraction>, Serializable
      * @param title The name of the attraction
      * @param coords The location of the attraction
      */
-    public Attraction(String title, String coords) 
+    public Attraction(String title, Context context) 
     {
-        RatingAndCategories fs, yp, gp;
-        fs = yp = gp = null;
+        WebInfo fs, yp, gp, ta;
+        fs = yp = gp = ta = null;
+
+        String coords = context.coordinates;
+        String location = context.location;
         try 
         {
             fs = searchFourSquare(coords, title);
@@ -99,6 +122,15 @@ public class Attraction implements Comparable<Attraction>, Serializable
         {
             e.printStackTrace();
         }
+
+        try
+        {
+            ta = searchTripAdvisor(title, context.geoID);
+        }
+        catch (URISyntaxException | IOException | ParseException e) 
+        {
+            e.printStackTrace();
+        }
         name = title;
         double numRatings = 0;
         this.rating = 0;
@@ -117,10 +149,11 @@ public class Attraction implements Comparable<Attraction>, Serializable
             if (yp.apiRating != 0) {
                 rating += yp.apiRating;
                 numRatings += 1;
-                for (String cat: yp.apiCategories) {
-                    if (!combinedCategories.contains(cat)) 
-                        combinedCategories.add(cat);
-                }
+
+            }
+            for (String cat: yp.apiCategories) {
+                if (!combinedCategories.contains(cat)) 
+                    combinedCategories.add(cat);
             }
         }
         if (gp != null){
@@ -129,6 +162,16 @@ public class Attraction implements Comparable<Attraction>, Serializable
                 numRatings += 1;
             }
             for (String cat: gp.apiCategories) {
+                if (!combinedCategories.contains(cat)) 
+                    combinedCategories.add(cat);
+            }
+        }
+        if (ta != null){
+            if (ta.apiRating != 0) {
+                rating += ta.apiRating;
+                numRatings += 1;
+            }
+            for (String cat: ta.apiCategories) {
                 if (!combinedCategories.contains(cat)) 
                     combinedCategories.add(cat);
             }
@@ -159,9 +202,9 @@ public class Attraction implements Comparable<Attraction>, Serializable
      * 
      * @param coords a string of the latitude and longitude of the context
      * @param name a string of the attraction to search
-     * @return a RatingAndCategories object of the search results
+     * @return a WebInfo object of the search results
      */
-    public RatingAndCategories searchFourSquare(String coords, String name) 
+    public WebInfo searchFourSquare(String coords, String name) 
     throws URISyntaxException, IOException
     {
         String client_id = Secret.FOURSQUARE_CLIENT_ID; 
@@ -268,7 +311,7 @@ public class Attraction implements Comparable<Attraction>, Serializable
         {
             types[x] = ((JSONObject)cats.get(x)).get("shortName").toString().toLowerCase().replace(" ","");
         }
-        return new RatingAndCategories(adjustedRating, new ArrayList<String>(Arrays.asList(types))); 
+        return new WebInfo(adjustedRating, new ArrayList<String>(Arrays.asList(types))); 
     }
 
     /**
@@ -277,9 +320,9 @@ public class Attraction implements Comparable<Attraction>, Serializable
      * @param name The name of the attraction
      * @param lat Latitude of the attraction
      * @param lng Longitude of the attraction
-     * @return a RatingAndCategories object of the search results
+     * @return a WebInfo object of the search results
      */
-    public RatingAndCategories searchYellowPages(String name, double lat, double lng)
+    public WebInfo searchYellowPages(String name, double lat, double lng)
     throws ParseException, IOException, URISyntaxException
     {
         String YP_KEY  = Secret.YP_KEY;
@@ -361,7 +404,7 @@ public class Attraction implements Comparable<Attraction>, Serializable
                     }
                 }
             }
-            return new RatingAndCategories(Double.parseDouble(rating), types);
+            return new WebInfo(Double.parseDouble(rating), types);
         } catch (NullPointerException e) {
             return null;
         }
@@ -372,9 +415,9 @@ public class Attraction implements Comparable<Attraction>, Serializable
      * @param name a string of the attraction to search
      * @param lat a double of the latitude of the context
      * @param lon a double of the longitude of the context
-     * @return a suggestion object of the search results
+     * @return a WebInfo object of the search results
      */
-    public RatingAndCategories searchGooglePlaces(String name, double lat, double lng) 
+    public WebInfo searchGooglePlaces(String name, double lat, double lng) 
     throws ParseException, IOException, URISyntaxException
     {
         String GOOGLE_API_KEY  = Secret.GOOGLE_API_KEY;
@@ -440,11 +483,139 @@ public class Attraction implements Comparable<Attraction>, Serializable
                     types.add(stuff.get(i).toString());
                 }
             }
-            return new RatingAndCategories(Double.parseDouble(rating), types);
+            return new WebInfo(Double.parseDouble(rating), types);
         }
         catch (NullPointerException e) {
             return null;
         }
+    }
+
+    /**
+     * Scrape the TripAdvisor Website for relevant information on the attraction
+     * @param name A string of the attraction to search
+     * @param geoID A string containing the TripAdvisor geo ID of the city of this attraction
+     * @return a WebInfo object of the search results
+     */
+    public WebInfo searchTripAdvisor(String name, String geoID)
+    throws ParseException, IOException, URISyntaxException
+    {
+        String trip = "https://www.tripadvisor.com";
+        name = name.replaceAll("\"", "").trim().replaceAll(" ", "+");
+
+        String searchUrl = trip + "/Search" + "?q=" + name + "&geo=" + geoID;
+        Document doc = Jsoup.connect(searchUrl).userAgent("Mozilla/5.0").get();
+
+        Elements links = doc.select("#taplc_search_results_0 .body div");
+        if(links.size() > 0){
+            Element link = links.get(0);
+            String onclick = link.attr("onclick");
+            String almostURL = onclick.substring(onclick.indexOf(".loadURLIfNotLink(event,'")+25);
+            String url = trip + almostURL.substring(0, almostURL.indexOf(".html") + 5);
+
+            Document deezNutz = Jsoup.connect(url).userAgent("Mozilla/5.0").get();
+
+            boolean excellent = deezNutz.select("div.coeBadgeDiv span.taLnk").size() > 0;
+
+            ArrayList<String> tags = new ArrayList<String>();
+
+            Elements reviewTags = deezNutz.select("div.ui_tagcloud_group span.ui_tagcloud");
+
+            for(int i = 1; i < reviewTags.size(); i++){
+                tags.add(reviewTags.get(i).text());
+            }
+
+            String rev = deezNutz.select("div.rating a.more").text().replace(" Reviews", "").replace(",","").replace(" Review", "");
+            int numReviews = 0;
+            if(!rev.equals("")){
+                numReviews = Integer.parseInt(rev);
+            }
+
+            String rate = deezNutz.select("span.sprite-rating_rr img.sprite-rating_rr_fill").attr("content");
+            double overallRating = 0.0;
+            if(!rate.equals("")){
+                overallRating = Double.parseDouble(rate);
+            }
+
+            String types = deezNutz.select("div.col.segment.extrawidth ul li label span").toString();
+
+            String seas = deezNutz.select("div.col.season.extrawidth ul li label span").toString();
+
+            //WebInfo info = new WebInfo(overallRating, tags, excellent, numReviews, types, seas);
+            WebInfo info = new WebInfo(overallRating, tags);
+            certificate = excellent;
+            this.numReviews = numReviews;
+            travelerTypes = types;
+            seasons = seas;
+
+            return info;
+
+            //System.out.println(url);
+            //System.out.println(seas);
+        }
+
+        return null;
+    }
+    
+    public static void searchTripAdvisor2(String name, String geoID)
+    throws ParseException, IOException, URISyntaxException
+    {
+        String trip = "https://www.tripadvisor.com";
+        name = name.replaceAll("\"", "").trim().replaceAll(" ", "+");
+
+        String searchUrl = trip + "/Search" + "?q=" + name + "&geo=" + geoID;
+        Document doc = Jsoup.connect(searchUrl).userAgent("Mozilla/5.0").get();
+
+        Elements links = doc.select("#taplc_search_results_0 div.body div");
+        
+        if(links.size() > 0){
+            System.out.println("here");
+            Element link = links.get(0);
+            String onclick = link.attr("onclick");
+            String almostURL = onclick.substring(onclick.indexOf(".loadURLIfNotLink(event,'")+25);
+            String url = trip + almostURL.substring(0, almostURL.indexOf(".html") + 5);
+
+            Document deezNutz = Jsoup.connect(url).userAgent("Mozilla/5.0").get();
+
+            boolean excellent = deezNutz.select("div.coeBadgeDiv span.taLnk").size() > 0;
+
+            ArrayList<String> tags = new ArrayList<String>();
+
+            Elements reviewTags = deezNutz.select("div.ui_tagcloud_group span.ui_tagcloud");
+
+            for(int i = 1; i < reviewTags.size(); i++){
+                tags.add(reviewTags.get(i).text());
+            }
+
+            String rev = deezNutz.select("div.rating a.more").text().replace(" Reviews", "").replace(",","").replace(" Review", "");
+            int numReviews = 0;
+            if(!rev.equals("")){
+                numReviews = Integer.parseInt(rev);
+            }
+
+            String rate = deezNutz.select("span.sprite-rating_rr img.sprite-rating_rr_fill").attr("content");
+            double overallRating = 0.0;
+            if(!rate.equals("")){
+                overallRating = Double.parseDouble(rate);
+            }
+
+            String types = deezNutz.select("div.col.segment.extrawidth ul li label span").toString();
+
+            String seas = deezNutz.select("div.col.season.extrawidth ul li label span").toString();
+
+            //WebInfo info = new WebInfo(overallRating, tags, excellent, numReviews, types, seas);
+            //WebInfo info = new WebInfo(overallRating, tags);
+            //certificate = excellent;
+            //this.numReviews = numReviews;
+            //travelerTypes = types;
+            //seasons = seas;
+            
+            //return info;
+
+            System.out.println(url);
+            System.out.println(seas);
+        }
+
+        //return null;
     }
 
     public int compareTo(Attraction other)
@@ -464,6 +635,10 @@ public class Attraction implements Comparable<Attraction>, Serializable
         String out = name + "\n";
         out += id + "\n";
         out += rating +"\n";
+        out += certificate + "\n";
+        out += numReviews + "\n";
+        out += travelerTypes + "\n";
+        out += seasons + "\n";
         out += categories +"\n";
         return out;
     }
@@ -474,7 +649,12 @@ public class Attraction implements Comparable<Attraction>, Serializable
         String name = in.nextLine();
         System.out.print("Coordinates: ");
         String coords = in.nextLine();
-        Attraction a = new Attraction(name, coords);
+        Attraction a = new Attraction(name, new Context("", coords, ""));
         System.out.println(a);
+    }
+
+    public static void testTrip() 
+    throws ParseException, IOException, URISyntaxException{
+        searchTripAdvisor2("pizza d'italia", "60864");
     }
 }
