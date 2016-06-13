@@ -75,7 +75,7 @@ public class Main
             System.err.println("UneccessaryCats.txt was not found in the DataFiles directory");
             return;
         }
-        ArrayList<String> ignoredCats = new ArrayList<String>();
+        HashSet<String> ignoredCats = new HashSet<String>();
 
         while (in.hasNextLine()){
             ignoredCats.add(in.nextLine());
@@ -127,6 +127,7 @@ public class Main
              */
             for (Attraction a : attractions)
             {
+                //a.score = 0.0; // Reset the attraction score (in case it has been recently set)
                 boolean hasCategories = false; // Whether this attraction ('a') has any categories
                 for(String cat : a.categories)
                 {
@@ -164,6 +165,10 @@ public class Main
                     a.score = a.score / a.count;
                 else if(!hasCategories) // Place the attractions that don't have categories at the very end of the suggested list
                     a.score = -Double.MAX_VALUE;
+                    
+                if(a.rating > 0.0){ // GOOD
+                    a.score += a.rating;
+                }
             }
             /**
              * End of scoring algorithm
