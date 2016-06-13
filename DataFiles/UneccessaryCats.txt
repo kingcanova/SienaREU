@@ -1,6 +1,4 @@
 establishment
-food
-restaurant
 realestatemanagement
 realestateconsultant
 realestateagent
@@ -10,14 +8,13 @@ healthinsurance
 financialservice
 kitchenaccessory
 glassware
-store
 furniturestore
 generalcontractor
 service
 pointofinterest
 consultant
 dealer
-takeoutrestaurant
 restaurantmenu
-mealtakeaway
 caterer
+point_of_interest
+store
