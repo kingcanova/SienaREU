@@ -160,8 +160,9 @@ public class Main
 
                 }
 
-                if(a.count > 0)
+                if(a.count > 0){
                     a.score = a.score / a.count;
+                }
                 else if(!hasCategories) // Place the attractions that don't have categories at the very end of the suggested list
                     a.score = -Double.MAX_VALUE;
 
@@ -173,15 +174,52 @@ public class Main
                     a.score += 2;
                 }
 
-                //if(a.numReviews > 300 && a.rating >= 4.0){
-                //    a.score += 3;
-                //}
+                if(a.numReviews > 1000 && a.rating >= 4.0){
+                    a.score += a.rating;
+                }
+
+                if(a.seasons != null && !a.seasons.equals("")){ // Scoring for matching seasons
+                    String[] seas = a.seasons.split("\n");
+                    int[] seasonRatings = new int[4];
+                    String[] seasonAr = new String[]{"Spring", "Summer", "Autumn", "Winter"};
+                    HashMap<Integer, String> seasonMap = new HashMap<Integer, String>();
+                    for(int i = 0; i < 4; i++){
+                        String sub = seas[i].substring(0,seas[i].length()-8).substring(7);
+                        seasonRatings[i] = Integer.parseInt(sub.replace(",",""));
+                        seasonMap.put(seasonRatings[i], seasonAr[i]);
+                    }
+                    Arrays.sort(seasonRatings);
+                    String s = person.season;
+ 
+                    if(s != null && (s.equals(seasonMap.get(seasonRatings[2])) || s.equals(seasonMap.get(seasonRatings[3])))){
+                        //a.score += 1;
+                    }
+                }
+                
+                if(a.travelerTypes != null && !a.travelerTypes.equals("")){
+                    String[] groups = a.travelerTypes.split("\n");
+                    int[] groupRatings = new int[5];
+                    String[] groupAr = new String[]{"Family", "Alone", "Friends", "Other", "Friends"};
+                    HashMap<Integer, String> groupMap = new HashMap<Integer, String>();
+                    for(int i = 0; i < 5; i++){
+                        String sub = groups[i].substring(0,groups[i].length()-8).substring(7);
+                        groupRatings[i] = Integer.parseInt(sub.replace(",", ""));
+                        groupMap.put(groupRatings[i], groupAr[i]);
+                    }
+                    Arrays.sort(groupRatings);
+                    
+                    String g = person.group;
+                    if(g != null && (g.equals(groupMap.get(groupRatings[4])) || g.equals(groupMap.get(groupRatings[3])))){
+                        //a.score += 1;
+                    }
+                }
+
                 String name = a.name;
                 if(name.contains(" html ") || name.contains(" php ") || name.contains(" com ") || name.contains(" org ") || name.contains(".com")){
                     a.score = -50.0;
                 }
 
-                //a.score = a.rating * Math.log(a.numReviews);
+                //a.score += a.rating * Math.log(a.numReviews);
             }
             /**
              * End of scoring algorithm
@@ -193,7 +231,7 @@ public class Main
             for(int i = 0; i<attractions.size(); i++){
                 System.out.printf("%2d) %-35s %5.2f\n",
                     i+1, attractions.get(i).name, attractions.get(i).score);
-                //System.out.println(attractions.get(i).rating);
+                //System.out.println(attractions.get(i).seasons);
             }
             System.out.println("Sorted Results:     " + person.user_ID);
 
