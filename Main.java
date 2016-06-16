@@ -17,7 +17,7 @@ public class Main
     /**
      * This member is a map which maps profile IDs to their respective profile; to mimic 2015 results, use a Hashtable for this member.
      */ 
-    public static TreeMap<Integer, Profile> profiles = new TreeMap<Integer, Profile>();
+    public static TreeMap<Integer, Profile> profiles = new TreeMap<>();
     /**
      * This method builds each individual profile and puts them in 'profiles'. It should be
      * noted that each profile is taken from the 'batch_requests.json' file (from TREC).
@@ -75,7 +75,7 @@ public class Main
             System.err.println("UneccessaryCats.txt was not found in the DataFiles directory");
             return;
         }
-        HashSet<String> ignoredCats = new HashSet<String>();
+        Set<String> ignoredCats = new HashSet<>();
 
         while (in.hasNextLine()){
             ignoredCats.add(in.nextLine());
@@ -137,14 +137,13 @@ public class Main
                         a.score += person.cat_count.get(cat);
                         a.count += 1;
                     }
-                    
+
                     /**
                      * NOTES:
                      * Fast food and young men
                      * Gyms and younger people
                      */
-                    
-                    
+
                     // Messing around with the scoring algorithm...
                     //                     if(cat.equals("bar")){
                     //                         a.score = -1.0;
@@ -165,10 +164,24 @@ public class Main
                     a.score = a.score / a.count;
                 else if(!hasCategories) // Place the attractions that don't have categories at the very end of the suggested list
                     a.score = -Double.MAX_VALUE;
-                    
+
                 if(a.rating > 0.0){ // GOOD
                     a.score += a.rating;
                 }
+
+                if(a.certificate){
+                    a.score += 2;
+                }
+
+                //if(a.numReviews > 300 && a.rating >= 4.0){
+                //    a.score += 3;
+                //}
+                String name = a.name;
+                if(name.contains(" html ") || name.contains(" php ") || name.contains(" com ") || name.contains(" org ") || name.contains(".com")){
+                    a.score = -50.0;
+                }
+
+                //a.score = a.rating * Math.log(a.numReviews);
             }
             /**
              * End of scoring algorithm
@@ -180,6 +193,7 @@ public class Main
             for(int i = 0; i<attractions.size(); i++){
                 System.out.printf("%2d) %-35s %5.2f\n",
                     i+1, attractions.get(i).name, attractions.get(i).score);
+                //System.out.println(attractions.get(i).rating);
             }
             System.out.println("Sorted Results:     " + person.user_ID);
 

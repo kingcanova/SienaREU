@@ -117,7 +117,7 @@ public class Profile implements Serializable
             String[] elements = trec_id.split("-");
             int attrID = Integer.parseInt(elements[1]);
             int contextID = Integer.parseInt(elements[2]);
-            String name = collection.get(attrID).split(" - ")[0];
+            String name = collection.get(attrID).split(" - ")[0].replace("\"", "");
             Context context = contexts.get(contextID);
             Attraction attr;
             if(attrs.get(attrID) == null){
@@ -175,7 +175,7 @@ public class Profile implements Serializable
             //we will treat these as more categories and merge them with the API returned categories
             JSONArray tags = (JSONArray) pref.get("tags");
 
-            String name = collection.get(att_id).split(" - ")[0];
+            String name = collection.get(att_id).split(" - ")[0].replace("\"", "");
             Context context = contexts.get(contextID);
 
             Attraction curr;
