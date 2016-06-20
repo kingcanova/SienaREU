@@ -138,6 +138,19 @@ public class Main
                         a.count += 1;
                     }
 
+                    if(a.certificate && person.cat_count.get(cat) != null && person.cat_count.get(cat) >= 1){
+                        a.score += 3;
+                    }
+
+                    if(a.numReviews > 1000 && a.rating >= 4.0 && person.cat_count.get(cat) != null && person.cat_count.get(cat) >= 2.5){
+                        a.score += a.rating;
+                    }
+                    
+                    //if(cat.equals("pizza")){
+                    //    a.score += 3;
+                    //}
+
+                    
                     /**
                      * NOTES:
                      * Fast food and young men
@@ -171,11 +184,11 @@ public class Main
                 }
 
                 if(a.certificate){
-                    a.score += 2;
+                    //a.score += 2;
                 }
 
                 if(a.numReviews > 1000 && a.rating >= 4.0){
-                    a.score += a.rating;
+                    //a.score += a.rating;
                 }
 
                 if(a.seasons != null && !a.seasons.equals("")){ // Scoring for matching seasons
@@ -190,12 +203,12 @@ public class Main
                     }
                     Arrays.sort(seasonRatings);
                     String s = person.season;
- 
+
                     if(s != null && (s.equals(seasonMap.get(seasonRatings[2])) || s.equals(seasonMap.get(seasonRatings[3])))){
                         //a.score += 1;
                     }
                 }
-                
+
                 if(a.travelerTypes != null && !a.travelerTypes.equals("")){
                     String[] groups = a.travelerTypes.split("\n");
                     int[] groupRatings = new int[5];
@@ -207,7 +220,7 @@ public class Main
                         groupMap.put(groupRatings[i], groupAr[i]);
                     }
                     Arrays.sort(groupRatings);
-                    
+
                     String g = person.group;
                     if(g != null && (g.equals(groupMap.get(groupRatings[4])) || g.equals(groupMap.get(groupRatings[3])))){
                         //a.score += 1;
@@ -231,6 +244,9 @@ public class Main
             for(int i = 0; i<attractions.size(); i++){
                 System.out.printf("%2d) %-35s %5.2f\n",
                     i+1, attractions.get(i).name, attractions.get(i).score);
+
+                System.out.println(attractions.get(i));
+
                 //System.out.println(attractions.get(i).seasons);
             }
             System.out.println("Sorted Results:     " + person.user_ID);

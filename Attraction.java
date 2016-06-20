@@ -288,6 +288,28 @@ public class Attraction implements Comparable<Attraction>, Serializable
             return null;
         }
 
+        String heading = (curr.get("name")).toString().split(" - ")[0].split(" \\| ")[0];
+
+        String a, b;
+        if(heading.length() > name.length()){
+            b = heading;
+            a = name;
+        }else{
+            a = heading;
+            b = name;
+        }
+        a = a.replace("+", " ");
+        b = b.replace("+"," ");
+        double similarity = Lev.similarity(a,b);
+
+        System.out.println("FS: Shorter name:  " + a);
+        System.out.println("FS: Longer name:  " + b);
+        System.out.println("FS: Similarity:  " + similarity);
+
+        if(similarity > 30){
+            return null;
+        }
+
         //new code to try and scrape rating from FourSquare page
         //works sometimes, but other times the menu field doesnt even exist
         JSONObject menu = (JSONObject) curr.get("menu");
@@ -399,6 +421,7 @@ public class Attraction implements Comparable<Attraction>, Serializable
             results = (JSONArray) cur.get("searchListing");
         }
 
+
         String rating = "";
         ArrayList<String> types = new ArrayList<String>();
         //Check if Yellow Pages returned any results
@@ -417,6 +440,28 @@ public class Attraction implements Comparable<Attraction>, Serializable
                     for (String inner : cat.split("\\|")) {
                         types.add(inner.toLowerCase());
                     }
+                }
+
+                String heading = unk.get("businessName").toString().split(" - ")[0].split(" \\| ")[0];
+
+                String a, b;
+                if(heading.length() > name.length()){
+                    b = heading;
+                    a = name;
+                }else{
+                    a = heading;
+                    b = name;
+                }
+                a = a.replace("+", " ");
+                b = b.replace("+"," ");
+                double similarity = Lev.similarity(a,b);
+
+                System.out.println("YP: Shorter name:  " + a);
+                System.out.println("YP: Longer name:  " + b);
+                System.out.println("YP: Similarity:  " + similarity);
+
+                if(similarity > 30){
+                    return null;
                 }
             }
             return new WebInfo(Double.parseDouble(rating), types);
@@ -497,6 +542,29 @@ public class Attraction implements Comparable<Attraction>, Serializable
                 for (int i = 0; i < stuff.size(); i++) {
                     types.add(stuff.get(i).toString());
                 }
+
+                String heading = unk.get("name").toString().split(" - ")[0].split(" \\| ")[0];
+
+                String a, b;
+                if(heading.length() > name.length()){
+                    b = heading;
+                    a = name;
+                }else{
+                    a = heading;
+                    b = name;
+                }
+                a = a.replace("+", " ");
+                b = b.replace("+"," ");
+                double similarity = Lev.similarity(a,b);
+
+                System.out.println("GP: Shorter name:  " + a);
+                System.out.println("GP: Longer name:  " + b);
+                System.out.println("GP: Similarity:  " + similarity);
+
+                if(similarity > 30){
+                    return null;
+                }
+
             }
             return new WebInfo(Double.parseDouble(rating), types);
         }
@@ -520,7 +588,7 @@ public class Attraction implements Comparable<Attraction>, Serializable
         String searchUrl = trip + "/Search" + "?q=" + name + "&geo=" + geoID;
         Document doc = null;
         while(true){
-            Prox p = proxies.get(40);
+            Prox p = proxies.get(45);
             //System.out.println(ensocketize(p));
             System.setProperty("https.proxyHost", p.ip);
             System.setProperty("https.proxyPort", p.port);
@@ -553,8 +621,8 @@ public class Attraction implements Comparable<Attraction>, Serializable
             String url = trip + almostURL.substring(0, almostURL.indexOf(".html") + 5);
 
             Document deezNutz = Jsoup.connect(url).userAgent("Mozilla/5.0").get();
-            
-            String heading = deezNutz.select("#HEADING").text();
+
+            String heading = deezNutz.select("#HEADING").text().split(" - ")[0].split(" \\| ")[0];
             String a, b;
             if(heading.length() > name.length()){
                 b = heading;
@@ -566,26 +634,22 @@ public class Attraction implements Comparable<Attraction>, Serializable
             a = a.replace("+", " ");
             b = b.replace("+"," ");
             double similarity = Lev.similarity(a,b);
-            
+
             System.out.println("Shorter name:  " + a);
             System.out.println("Longer name:  " + b);
             System.out.println("Similarity:  " + similarity);
-            
+
             if(similarity > 25){
                 return null;
             }
-            
 
             boolean excellent = deezNutz.select("div.coeBadgeDiv span.taLnk").size() > 0;
-
             ArrayList<String> tags = new ArrayList<String>();
-
             Elements reviewTags = deezNutz.select("div.ui_tagcloud_group span.ui_tagcloud");
-
             for(int i = 1; i < reviewTags.size(); i++){
                 //tags.add(reviewTags.get(i).text()); // Discrediting TripAdvisor User Tags
             }
-            
+
             //Elements legitCats = deezNutz.select("div.detail");
 
             String rev = deezNutz.select("div.rating a.more").text().replace(" Reviews", "").replace(",","").replace(" Review", "");
@@ -639,8 +703,8 @@ public class Attraction implements Comparable<Attraction>, Serializable
         out += rating +"\n";
         out += certificate + "\n";
         out += numReviews + "\n";
-        out += travelerTypes + "\n";
-        out += seasons + "\n";
+        //out += travelerTypes + "\n";
+        //out += seasons + "\n";
         out += categories +"\n";
         return out;
     }
