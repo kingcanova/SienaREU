@@ -1,13 +1,19 @@
 
 /**
- * Write a description of class Lev here.
+ * This class is used to compare the similarity of two strings using the Levenshtein distance algorithm. The point of the class is so that we can check whether the 
+ * information we are retrieving is actually relevant by checking it against our target strings,
+ * but allows some slight variation between the returned info and the target so things such as The dairy cow and dairy cow are seen as the same/relevant.
  * 
- * @author (your name) 
- * @version (a version number or a date)
+ * @author Tristan Canova, Dan Carpenter, Neil Devine, Kevin Danaher
+ * @version 7/26/16
  */
 public class Lev
 {
-    public static int levin(String a, String b){
+    /**
+     * Levenshtein distance (LD) is a measure of the similarity between two strings.
+     */
+    public static int levin(String a, String b)
+    {
         int[][] d = new int[a.length()+1][b.length()+1];
         for(int i = 1; i <= a.length(); i++){
             d[i][0] = i;
@@ -43,8 +49,6 @@ public class Lev
                     }
                 }
 
-                //d[i][j] = Math.min(d[i-1][j] + 1,
-                //    Math.min(d[i][j-1] + 1, d[i-1][j-1] + substitutionCost));
             }
         }
         return d[a.length()][b.length()];
@@ -71,7 +75,12 @@ public class Lev
         return wordsTotal;
     }
 
-    public static double similarity(String a, String b){
+    /**
+     * This is the method called to complete the function of the class. 
+     * For more information check this link: http://stackoverflow.com/questions/5859561/getting-the-closest-string-match?noredirect=1&lq=1
+     */
+    public static double similarity(String a, String b)
+    {
         int phraseVal = levin(a, b);
         double wordsVal = valueWords(a, b);
         double phraseWeight = 0.5;
@@ -81,6 +90,21 @@ public class Lev
         double maxWeight = 1;
         double lengthVal = Math.abs(a.length() - b.length());
         lengthVal = 0;
+        return Math.min(phraseWeight*phraseVal, wordsWeight*wordsVal)*minWeight
+        + Math.max(phraseWeight*phraseVal, wordsWeight*wordsVal)*maxWeight
+        + lengthWeight*lengthVal;
+    }
+    
+    public static double categorySimilarity(String a, String b)
+    {
+        int phraseVal = levin(a, b);
+        double wordsVal = valueWords(a, b);
+        double phraseWeight = 0.7;
+        double wordsWeight = 1.0;
+        double lengthWeight = 0.3;
+        double minWeight = 10;
+        double maxWeight = 1;
+        double lengthVal = Math.abs(a.length() - b.length());
         return Math.min(phraseWeight*phraseVal, wordsWeight*wordsVal)*minWeight
         + Math.max(phraseWeight*phraseVal, wordsWeight*wordsVal)*maxWeight
         + lengthWeight*lengthVal;
