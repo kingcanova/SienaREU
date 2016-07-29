@@ -28,16 +28,13 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.HttpHost;
-import org.apache.http.conn.params.ConnRoutePNames;
-import org.apache.http.params.CoreConnectionPNames;
-import org.apache.http.HttpEntity;
 /**
  * An Attraction contains all the information on a specific point of interest.
+ * Most importantly, it has a rating and a list of categories which are taken from online
+ * sites using their APIs or through web scraping.
  * 
  * @author Tristan Canova, Dan Carpenter, Kevin Danaher, Neil Devine
- * @version 6/9/16
+ * @version Final
  */
 public class Attraction implements Comparable<Attraction>, Serializable
 {
@@ -50,7 +47,6 @@ public class Attraction implements Comparable<Attraction>, Serializable
             String line = "";
             while((line = in.readLine()) != null){
                 String[] row = line.split(",");
-                //System.out.println(Arrays.toString(row));
                 Prox p = new Prox(row[0], row[1]);
                 proxies.add(p);
             }
@@ -58,6 +54,8 @@ public class Attraction implements Comparable<Attraction>, Serializable
             e.printStackTrace();
         }
     }
+
+    //it seems that contextID and id aren't actually used here...
     public String name;
     public int contextID;
     public int id;
@@ -66,6 +64,7 @@ public class Attraction implements Comparable<Attraction>, Serializable
 
     public Double score = 0.0;
     public int count;
+    public boolean infoFound;
 
     // Specifically for TripAdvisor:
     public boolean certificate; // Whether this attraction has a 'Certificate of Excellence'
@@ -73,15 +72,14 @@ public class Attraction implements Comparable<Attraction>, Serializable
     public String travelerTypes; // A List of the most relevant traveler types on TripAdvisor
     public String seasons; // A List of the most relevant seasons to go to this attraction
     /**
-     * Plain Data Structure for storing relevant information for a given attraction based on its API search results
+     * Plain Data Structure for storing rating and category info for a given attraction based on an API search
+     * 
      */
     class WebInfo 
     {
-        // For most APIs:
         private double apiRating;
         private ArrayList<String> apiCategories;
 
-        // Constructor for most APIs
         private WebInfo(double r, ArrayList<String> c) 
         {
             apiRating = r;
@@ -90,8 +88,8 @@ public class Attraction implements Comparable<Attraction>, Serializable
     }
 
     /**
-     * Attraction Constructor that is used when no file exists, and you need
-     * to query the APIs to compile information about the attraction.
+     * Attraction Constructor that is used when looking up an attraction for the first time.
+     * This constructor queries the APIs to gather information.
      *
      * @param title The name of the attraction
      * @param coords The location of the attraction
@@ -103,6 +101,8 @@ public class Attraction implements Comparable<Attraction>, Serializable
 
         String coords = context.coordinates;
         String location = context.location;
+
+        //making calls to all 4 APIs
         try 
         {
             fs = searchFourSquare(coords, title);
@@ -133,10 +133,13 @@ public class Attraction implements Comparable<Attraction>, Serializable
         {
             e.printStackTrace();
         }
-
         try
         {
             ta = searchTripAdvisor(title, context.geoID);
+            if(ta == null){
+                System.out.println("................Switching proxy...................");
+                Collections.rotate(proxies, 1);
+            }
         }
         catch (URISyntaxException | IOException | ParseException e) 
         {
@@ -146,11 +149,12 @@ public class Attraction implements Comparable<Attraction>, Serializable
         double numRatings = 0;
         this.rating = 0;
         ArrayList<String> combinedCategories = new ArrayList<String>();
-        //a rating of 0 is an indication that no real rating was found
+
+        //merging API information
         if (fs != null) {
-            if (fs.apiRating != 0) {
-                rating = fs.apiRating*2;
-                numRatings += 2;
+            if (fs.apiRating != 0) { //a rating of 0 is an indication that no real rating was found
+                rating = fs.apiRating;
+                numRatings += 1;
             }
             for (String cat: fs.apiCategories) {
                 combinedCategories.add(cat);
@@ -160,7 +164,6 @@ public class Attraction implements Comparable<Attraction>, Serializable
             if (yp.apiRating != 0) {
                 rating += yp.apiRating;
                 numRatings += 1;
-
             }
             for (String cat: yp.apiCategories) {
                 if (!combinedCategories.contains(cat)) 
@@ -191,10 +194,20 @@ public class Attraction implements Comparable<Attraction>, Serializable
             this.rating /= numRatings;
         else this.rating = 0;
         this.categories = combinedCategories;
+
+        //We can assume that if no ratings were found, no categories were found, and no reviews were found,
+        //that this attraction was not correctly searched and no information was found.
+        //This means that it will be searched for again when the program is rerun.
+        if (numReviews == 0)
+            infoFound = false;
+        else infoFound = true;
     }
 
     /**
-     * Copy constructor for Attraction Objects
+     * Copy constructor for Attraction Objects.
+     * Used when a specific attraction has already been sent through the APIs
+     * so that time isn't wasted searching the APIs again for it. 
+     * 
      * @param attr The attraction to be copied
      */
     public Attraction(Attraction attr){
@@ -240,12 +253,10 @@ public class Attraction implements Comparable<Attraction>, Serializable
 
         //conduct search with above paramters and recieve String response
         final HttpUriRequest request = new HttpGet(builder.build());
-        //HttpClient client = HttpClientBuilder.create().build();
         RequestConfig requestConfig = RequestConfig.custom().setConnectTimeout(20 * 1000).build();
         HttpClient client = HttpClientBuilder.create().setDefaultRequestConfig(requestConfig).build();
         final HttpResponse execute = client.execute(request);
         final String r = EntityUtils.toString(execute.getEntity());
-        //client.getConnectionManager().shutdown();
 
         //turn String into JSON
         JSONParser parser = new JSONParser();
@@ -255,15 +266,11 @@ public class Attraction implements Comparable<Attraction>, Serializable
             response = (JSONObject) parser.parse(r);
         } 
         catch (ParseException pe) {
-            System.err.println("Error: could not parse JSON response:");
-            System.out.println(r);
-            System.exit(1);
+            pe.printStackTrace();
+            return null;
         } 
         catch (NullPointerException e) {
             System.err.println("Error: null pointer in FSqAPI query:\n" + e);
-            //
-            //should this return a blank Suggestion too?
-            //
             return null;
         }
 
@@ -282,32 +289,41 @@ public class Attraction implements Comparable<Attraction>, Serializable
                 //No results found, return a blank suggestion
                 return null;
             }
-            //System.out.println(results);
             curr = (JSONObject) results.get(0);
         }catch(Exception ex){
             return null;
         }
 
+        //cleaning up bad strings- some attraction names given by TREC have useless info that messes up searches
+        //ex: Beer Culture - Beer, Wine &amp; Spirits - New York , NY 
+        //we reduce it to Beer Culture, which makes for a better search term
         String heading = (curr.get("name")).toString().split(" - ")[0].split(" \\| ")[0];
 
-        String a, b;
-        if(heading.length() > name.length()){
-            b = heading;
-            a = name;
-        }else{
-            a = heading;
-            b = name;
-        }
-        a = a.replace("+", " ");
-        b = b.replace("+"," ");
-        double similarity = Lev.similarity(a,b);
+        /**
+         * Performing Levenshtein's algorithm with a threshold of 30.  'name' refers to the attraction
+         * name that we searched for, and 'heading' is the attraction name that was found by the search.
+         * Whichever string is smaller is used as the first parameter when calling Lev.similarity().
+         */
+        {
+            String a, b;
+            if(heading.length() > name.length()){
+                b = heading;
+                a = name;
+            }else{
+                a = heading;
+                b = name;
+            }
+            a = a.replace("+", " ");
+            b = b.replace("+"," ");
+            double similarity = Lev.similarity(a,b);
 
-        System.out.println("FS: Shorter name:  " + a);
-        System.out.println("FS: Longer name:  " + b);
-        System.out.println("FS: Similarity:  " + similarity);
+            System.out.println("FS: Shorter name:  " + a);
+            System.out.println("FS: Longer name:  " + b);
+            System.out.println("FS: Similarity:  " + similarity);
 
-        if(similarity > 30){
-            return null;
+            if(similarity > 30){
+                return null;
+            }
         }
 
         //new code to try and scrape rating from FourSquare page
@@ -389,15 +405,11 @@ public class Attraction implements Comparable<Attraction>, Serializable
             response = (JSONObject) parser.parse(r);
         } 
         catch (ParseException pe) {
-            System.err.println("Error: could not parse JSON response:");
-            System.out.println(r);
-            System.exit(1);
+            pe.printStackTrace();
+            return null;
         }
         catch (NullPointerException e) {
             System.err.println("Error: null pointer in YPqAPI query:\n" + e);
-            //
-            //should this return a blank Suggestion too?
-            //
             return null;
         }
 
@@ -421,7 +433,6 @@ public class Attraction implements Comparable<Attraction>, Serializable
             results = (JSONArray) cur.get("searchListing");
         }
 
-
         String rating = "";
         ArrayList<String> types = new ArrayList<String>();
         //Check if Yellow Pages returned any results
@@ -444,24 +455,31 @@ public class Attraction implements Comparable<Attraction>, Serializable
 
                 String heading = unk.get("businessName").toString().split(" - ")[0].split(" \\| ")[0];
 
-                String a, b;
-                if(heading.length() > name.length()){
-                    b = heading;
-                    a = name;
-                }else{
-                    a = heading;
-                    b = name;
-                }
-                a = a.replace("+", " ");
-                b = b.replace("+"," ");
-                double similarity = Lev.similarity(a,b);
+                /**
+                 * Performing Levenshtein's algorithm with a threshold of 30.  'name' refers to the attraction
+                 * name that we searched for, and 'heading' is the attraction name that was found by the search.
+                 * Whichever string is smaller is used as the first parameter when calling Lev.similarity().
+                 */
+                {
+                    String a, b;
+                    if(heading.length() > name.length()){
+                        b = heading;
+                        a = name;
+                    }else{
+                        a = heading;
+                        b = name;
+                    }
+                    a = a.replace("+", " ");
+                    b = b.replace("+"," ");
+                    double similarity = Lev.similarity(a,b);
 
-                System.out.println("YP: Shorter name:  " + a);
-                System.out.println("YP: Longer name:  " + b);
-                System.out.println("YP: Similarity:  " + similarity);
+                    System.out.println("YP: Shorter name:  " + a);
+                    System.out.println("YP: Longer name:  " + b);
+                    System.out.println("YP: Similarity:  " + similarity);
 
-                if(similarity > 30){
-                    return null;
+                    if(similarity > 30){
+                        return null;
+                    }
                 }
             }
             return new WebInfo(Double.parseDouble(rating), types);
@@ -505,15 +523,11 @@ public class Attraction implements Comparable<Attraction>, Serializable
         try {
             response = (JSONObject) parser.parse(r);
         } catch (ParseException pe) {
-            System.err.println("Error: could not parse JSON response:");
-            System.out.println(r);
-            System.exit(1);
+            pe.printStackTrace();
+            return null;
         }
         catch (NullPointerException e) {
             System.err.println("Error: null pointer in GPqAPI query:\n" + e);
-            //
-            //should this return a blank Suggestion too?
-            //
             return null;
         }
 
@@ -545,26 +559,32 @@ public class Attraction implements Comparable<Attraction>, Serializable
 
                 String heading = unk.get("name").toString().split(" - ")[0].split(" \\| ")[0];
 
-                String a, b;
-                if(heading.length() > name.length()){
-                    b = heading;
-                    a = name;
-                }else{
-                    a = heading;
-                    b = name;
+                /**
+                 * Performing Levenshtein's algorithm with a threshold of 30.  'name' refers to the attraction
+                 * name that we searched for, and 'heading' is the attraction name that was found by the search.
+                 * Whichever string is smaller is used as the first parameter when calling Lev.similarity().
+                 */
+                {
+                    String a, b;
+                    if(heading.length() > name.length()){
+                        b = heading;
+                        a = name;
+                    }else{
+                        a = heading;
+                        b = name;
+                    }
+                    a = a.replace("+", " ");
+                    b = b.replace("+"," ");
+                    double similarity = Lev.similarity(a,b);
+
+                    System.out.println("GP: Shorter name:  " + a);
+                    System.out.println("GP: Longer name:  " + b);
+                    System.out.println("GP: Similarity:  " + similarity);
+
+                    if(similarity > 30){
+                        return null;
+                    }
                 }
-                a = a.replace("+", " ");
-                b = b.replace("+"," ");
-                double similarity = Lev.similarity(a,b);
-
-                System.out.println("GP: Shorter name:  " + a);
-                System.out.println("GP: Longer name:  " + b);
-                System.out.println("GP: Similarity:  " + similarity);
-
-                if(similarity > 30){
-                    return null;
-                }
-
             }
             return new WebInfo(Double.parseDouble(rating), types);
         }
@@ -587,20 +607,16 @@ public class Attraction implements Comparable<Attraction>, Serializable
 
         String searchUrl = trip + "/Search" + "?q=" + name + "&geo=" + geoID;
         Document doc = null;
+        //keep changing proxies until we find one that is working
         while(true){
-            Prox p = proxies.get(45);
-            //System.out.println(ensocketize(p));
+            Prox p = proxies.get(10);
             System.setProperty("https.proxyHost", p.ip);
             System.setProperty("https.proxyPort", p.port);
             if(++numAttractions % 30 == 0){
                 System.out.println("................Switching proxy...................");
                 Collections.rotate(proxies, 1);
-                //while(!ensocketize(proxies.get(0))){
-                //    Collections.rotate(proxies,1);
-                //}
             }
 
-            //Document doc = Jsoup.connect(searchUrl).get();
             try{
                 doc = Jsoup.connect(searchUrl).get();
                 break;
@@ -608,49 +624,61 @@ public class Attraction implements Comparable<Attraction>, Serializable
                 Collections.rotate(proxies,1);
             }
         }
-        //userAgent("Mozilla/5.0")
-        Elements links = doc.select("#taplc_search_results_0 .body div");
+
+        /**
+         * NOTE!!!  This section searches for specific HTML elements, so if nothing is returned by 
+         * TripAdvisor, investigate the page and see if this is accessing the correct information.
+         * They may have changed their HTML.
+         */
+        Elements links = doc.select("#taplc_search_results_0 div.body div.result div.result_wrap");
         if(links.size() > 0){
-            Element link = links.get(0);
-            String onclick = link.attr("onclick");
+            Element link = links.get(0);  //we assume that the first link found on the search page is what we are looking for
+            String onclick = link.attr("onclick");  //gets the link to the attraction's page
             int index = onclick.indexOf(".loadURLIfNotLink(event,'");
             if(index == -1){
-                return null;
+                return new WebInfo(0, new ArrayList<String>());
             }
             String almostURL = onclick.substring(onclick.indexOf(".loadURLIfNotLink(event,'")+25);
             String url = trip + almostURL.substring(0, almostURL.indexOf(".html") + 5);
 
+            //now we are on the page of the attraction, although we still don't know for sure
+            //if it is the attraction we are looking for
             Document deezNutz = Jsoup.connect(url).userAgent("Mozilla/5.0").get();
 
             String heading = deezNutz.select("#HEADING").text().split(" - ")[0].split(" \\| ")[0];
-            String a, b;
-            if(heading.length() > name.length()){
-                b = heading;
-                a = name;
-            }else{
-                a = heading;
-                b = name;
+
+            /**
+             * Performing Levenshtein's algorithm with a threshold of 30.  'name' refers to the attraction
+             * name that we searched for, and 'heading' is the attraction name that was found by the search.
+             * Whichever string is smaller is used as the first parameter when calling Lev.similarity().
+             */
+            {
+                String a, b;
+                if(heading.length() > name.length()){
+                    b = heading;
+                    a = name;
+                }else{
+                    a = heading;
+                    b = name;
+                }
+                a = a.replace("+", " ");
+                b = b.replace("+"," ");
+                double similarity = Lev.similarity(a,b);
+
+                System.out.println("Shorter name:  " + a);
+                System.out.println("Longer name:  " + b);
+                System.out.println("Similarity:  " + similarity);
+
+                if(similarity > 30){
+                    return new WebInfo(0, new ArrayList<String>());
+                }
             }
-            a = a.replace("+", " ");
-            b = b.replace("+"," ");
-            double similarity = Lev.similarity(a,b);
 
-            System.out.println("Shorter name:  " + a);
-            System.out.println("Longer name:  " + b);
-            System.out.println("Similarity:  " + similarity);
-
-            if(similarity > 25){
-                return null;
-            }
-
+            //determine whether or not this attraction has a CoE
             boolean excellent = deezNutz.select("div.coeBadgeDiv span.taLnk").size() > 0;
+
             ArrayList<String> tags = new ArrayList<String>();
             Elements reviewTags = deezNutz.select("div.ui_tagcloud_group span.ui_tagcloud");
-            for(int i = 1; i < reviewTags.size(); i++){
-                //tags.add(reviewTags.get(i).text()); // Discrediting TripAdvisor User Tags
-            }
-
-            //Elements legitCats = deezNutz.select("div.detail");
 
             String rev = deezNutz.select("div.rating a.more").text().replace(" Reviews", "").replace(",","").replace(" Review", "");
             int numReviews = 0;
@@ -664,11 +692,12 @@ public class Attraction implements Comparable<Attraction>, Serializable
                 overallRating = Double.parseDouble(rate);
             }
 
+            //trip type information
             String types = deezNutz.select("div.col.segment.extrawidth ul li label span").toString();
 
+            //trip season information
             String seas = deezNutz.select("div.col.season.extrawidth ul li label span").toString();
 
-            //WebInfo info = new WebInfo(overallRating, tags, excellent, numReviews, types, seas);
             WebInfo info = new WebInfo(overallRating, tags);
             certificate = excellent;
             this.numReviews = numReviews;
@@ -676,11 +705,7 @@ public class Attraction implements Comparable<Attraction>, Serializable
             seasons = seas;
 
             return info;
-
-            //System.out.println(url);
-            //System.out.println(seas);
         }
-
         return null;
     }
 
@@ -703,8 +728,6 @@ public class Attraction implements Comparable<Attraction>, Serializable
         out += rating +"\n";
         out += certificate + "\n";
         out += numReviews + "\n";
-        //out += travelerTypes + "\n";
-        //out += seasons + "\n";
         out += categories +"\n";
         return out;
     }

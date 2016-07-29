@@ -30,11 +30,11 @@ public class FilesEqual
         Scanner in = new Scanner(System.in);
 
         System.out.print("Enter the name of the first file: ");
-        String file = in.next();
+        String file = in.nextLine();
         BufferedReader in2 = new BufferedReader(new FileReader(Paths.get(file).toFile()));
 
         System.out.print("Enter the name of the second file: ");
-        String file2 = in.next();
+        String file2 = in.nextLine();
         BufferedReader in3 = new BufferedReader(new FileReader(Paths.get(file2).toFile()));
 
         boolean same = true;

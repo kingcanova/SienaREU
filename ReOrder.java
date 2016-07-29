@@ -38,4 +38,9 @@ public class ReOrder
         in.close();
         pw.close();
     }
+    
+    public static void blah(String s){
+        String[] row = s.split(" - ");
+        System.out.println(row[0]);
+    }
 }

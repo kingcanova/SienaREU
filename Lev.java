@@ -1,4 +1,3 @@
-
 /**
  * This class is used to compare the similarity of two strings using the Levenshtein distance algorithm. The point of the class is so that we can check whether the 
  * information we are retrieving is actually relevant by checking it against our target strings,

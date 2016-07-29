@@ -7,9 +7,9 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 /**
- * This class is the Main Program of the Contextual Suggestion TREC Track for Siena College. 
+ * This class is the Main Program of the Contextual Suggestion TREC Track for Siena College.
  * 
- * @author Tristan Canova, Dan Carpenter, Neil Devine
+ * @author Tristan Canova, Dan Carpenter, Neil Devine, Kevin Danaher
  * @version 6/9/16
  */
 public class Main
@@ -22,7 +22,7 @@ public class Main
      * This method builds each individual profile and puts them in 'profiles'. It should be
      * noted that each profile is taken from the 'batch_requests.json' file (from TREC).
      */
-    private static void buildProfiles() throws IOException
+    private static void buildProfiles(boolean query) throws IOException
     {
         BufferedReader in = null;
         try{
@@ -36,7 +36,7 @@ public class Main
             if(line.equals("")){
                 break;
             }
-            Profile profile = new Profile(line);
+            Profile profile = new Profile(line, query);
             profiles.put(profile.user_ID, profile);
         }
 
@@ -53,7 +53,8 @@ public class Main
 
     /**
      * This method is the full program which orders 30 suggestions for each profile and outputs
-     * them to a JSON file.
+     * them to a JSON file. In addition
+     * 
      * @param args Command Line Arguments
      */
     public static void main(String args[]) throws IOException
@@ -90,33 +91,36 @@ public class Main
 
         File saveFile = null;
         try{
-            saveFile = new File("../DataFiles/profiles.dat");
+            saveFile = new File("../DataFiles/attractions.dat");
         }catch(Exception ex){
-            System.err.println("Could not find profiles.dat in DataFiles directory");
+            System.err.println("Could not find attractions.dat in DataFiles directory");
             return;
         }
 
         boolean serialized = saveFile.exists();
 
-        if(serialized){ // If the profiles object exists, use it
-            try(FileInputStream s = new FileInputStream("../DataFiles/profiles.dat")) {
+        if(serialized){ // If attrs exists, build upon it
+            try(FileInputStream s = new FileInputStream("../DataFiles/attractions.dat")) {
                 ObjectInputStream s2 = new ObjectInputStream(s);
-                profiles = (TreeMap<Integer, Profile>)s2.readObject();
+                Profile.attrs = (HashMap<Integer, Attraction>)s2.readObject();
             }catch(Exception e){
-                System.err.println("error finding profiles.dat");
+                System.err.println("Error finding attractions.dat");
             }
-        }else{ // If it doesn't, recreate it
-            buildProfiles();
-            try(FileOutputStream f = new FileOutputStream("../DataFiles/profiles.dat")){
-                ObjectOutputStream f2 = new ObjectOutputStream(f);
-                f2.writeObject(profiles);
-                f2.flush();
-            }catch(Exception e){
-                e.printStackTrace();
-            }
+        }else{
+            Profile.attrs = new HashMap<Integer, Attraction>();
+        }
+
+        buildProfiles(true);
+        try(FileOutputStream f = new FileOutputStream("../DataFiles/attractions.dat")){ //writing attrs
+            ObjectOutputStream f2 = new ObjectOutputStream(f);
+            f2.writeObject(Profile.attrs);
+            f2.flush();
+        }catch(Exception e){
+            e.printStackTrace();
         }
 
         Set<Integer> profileIDs = profiles.navigableKeySet(); // A navigable (sorted) set of profile IDs
+        int reviewsFound = 0;
         for(Integer id : profileIDs) // For each Profile ID
         {
             Profile person = profiles.get(id); // Get an individual Profile Object
@@ -124,73 +128,64 @@ public class Main
 
             /**
              * Main Scoring Algorithm: this algorithm scores each of the Profile's candidates
+             * NOTE: All blocks with the comment "VARIABLE" are main factors to our score, which may be modified
+             * to optimize the final score over multiple test cases / data sets.
              */
             for (Attraction a : attractions)
             {
-                //a.score = 0.0; // Reset the attraction score (in case it has been recently set)
+                a.score = 0.0; // Reset the attraction score (in case it has been recently set)
                 boolean hasCategories = false; // Whether this attraction ('a') has any categories
                 for(String cat : a.categories)
                 {
                     hasCategories = true;
-                    if(person.cat_count.get(cat) != null && !ignoredCats.contains(cat))
-                    {
-                        a.score += person.cat_count.get(cat);
+
+                    // Whether this category has a count and it is not an ignored category
+                    boolean contains = person.cat_count.get(cat) != null && !ignoredCats.contains(cat);
+
+                    if(contains){
+                        a.score += (person.cat_count.get(cat) * person.cat_occurance.get(cat)) / (person.cat_occurance.get(cat) + 1);
                         a.count += 1;
                     }
 
-                    if(a.certificate && person.cat_count.get(cat) != null && person.cat_count.get(cat) >= 1){
+                    // VARIABLE
+                    if(a.certificate && contains && person.cat_count.get(cat) >= 1.5){ // GOOD (1 / 1.5)
                         a.score += 3;
                     }
 
-                    if(a.numReviews > 1000 && a.rating >= 4.0 && person.cat_count.get(cat) != null && person.cat_count.get(cat) >= 2.5){
-                        a.score += a.rating;
+                    // VARIABLE
+                    if(a.numReviews > 1000 && a.rating >= 4.0 && contains && person.cat_count.get(cat) >= 2.5){ // GOOD (1000, 4.0, 2.5)
+                        a.score += a.rating*0.8;
                     }
-                    
-                    //if(cat.equals("pizza")){
-                    //    a.score += 3;
-                    //}
 
-                    
-                    /**
-                     * NOTES:
-                     * Fast food and young men
-                     * Gyms and younger people
-                     */
-
-                    // Messing around with the scoring algorithm...
-                    //                     if(cat.equals("bar")){
-                    //                         a.score = -1.0;
-                    //                     }
-                    //                     else if(cat.equals("museum") || cat.equals("park")){
-                    //                         a.score= a.score * 2;
-                    //                     }
-                    //                     else if(cat.equals("meal_takeaway")){
-                    //                         a.score += 5;
-                    //                     }
-                    //                     else if(cat.equals("lodging")){
-                    //                         a.score = a.score / 2;
-                    //                     }
-
+                    if(cat.equals("pizza")){ // Obligatory Pizza Scoring
+                        //a.score += 3;
+                    }
                 }
 
+                // VARIABLE
                 if(a.count > 0){
                     a.score = a.score / a.count;
                 }
-                else if(!hasCategories) // Place the attractions that don't have categories at the very end of the suggested list
-                    a.score = -Double.MAX_VALUE;
+                else if(!hasCategories){ // Place the attractions that don't have categories at the very end of the suggested list
+                    //a.score = -Double.MAX_VALUE;
+                }
 
+                // VARIABLE
                 if(a.rating > 0.0){ // GOOD
                     a.score += a.rating;
                 }
 
+                // VARIABLE
                 if(a.certificate){
                     //a.score += 2;
                 }
 
+                // VARIABLE
                 if(a.numReviews > 1000 && a.rating >= 4.0){
                     //a.score += a.rating;
                 }
 
+                // VARIABLE
                 if(a.seasons != null && !a.seasons.equals("")){ // Scoring for matching seasons
                     String[] seas = a.seasons.split("\n");
                     int[] seasonRatings = new int[4];
@@ -209,7 +204,8 @@ public class Main
                     }
                 }
 
-                if(a.travelerTypes != null && !a.travelerTypes.equals("")){
+                // VARIABLE
+                if(a.travelerTypes != null && !a.travelerTypes.equals("")){ // Scoring for matching Trip Types
                     String[] groups = a.travelerTypes.split("\n");
                     int[] groupRatings = new int[5];
                     String[] groupAr = new String[]{"Family", "Alone", "Friends", "Other", "Friends"};
@@ -223,16 +219,15 @@ public class Main
 
                     String g = person.group;
                     if(g != null && (g.equals(groupMap.get(groupRatings[4])) || g.equals(groupMap.get(groupRatings[3])))){
-                        //a.score += 1;
+                        a.score += 1.5;
                     }
                 }
 
+                // Penalty for unrealistic attractions (those whose names are most likely just URLs of some webpage)
                 String name = a.name;
                 if(name.contains(" html ") || name.contains(" php ") || name.contains(" com ") || name.contains(" org ") || name.contains(".com")){
                     a.score = -50.0;
                 }
-
-                //a.score += a.rating * Math.log(a.numReviews);
             }
             /**
              * End of scoring algorithm
@@ -245,10 +240,12 @@ public class Main
                 System.out.printf("%2d) %-35s %5.2f\n",
                     i+1, attractions.get(i).name, attractions.get(i).score);
 
-                System.out.println(attractions.get(i));
-
-                //System.out.println(attractions.get(i).seasons);
+                if(attractions.get(i).numReviews > 0 || attractions.get(i).certificate){
+                    reviewsFound++;
+                }
             }
+            System.out.println("cat_count: " + person.cat_count);
+            System.out.println("cat_occurance: " + person.cat_occurance);
             System.out.println("Sorted Results:     " + person.user_ID);
 
             /**
@@ -268,6 +265,7 @@ public class Main
             pw.println();
         }
 
+        System.out.println("Number of attractions we got info for: "  + reviewsFound);
         // Close IO objects
         in.close();
         pw.close();
